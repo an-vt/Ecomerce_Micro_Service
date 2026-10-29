@@ -1,0 +1,43 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+rule_files:
+  - /etc/prometheus/rules/*.yml
+alerting:
+  alertmanagers:
+    - static_configs: [{ targets: ["ecom-alertmanager:9093"] }]
+scrape_configs:
+  # Services expose /metrics on their ops port (docs/14 §2). Targets that are not started yet simply show as down.
+  - job_name: ecom-services
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["ecom-gateway:3000"]
+        labels: { service: api-gateway }
+      - targets: ["ecom-auth:8101"]
+        labels: { service: auth-service }
+      - targets: ["ecom-catalog:8102"]
+        labels: { service: catalog-service }
+      - targets: ["ecom-inventory:8103"]
+        labels: { service: inventory-service }
+      - targets: ["ecom-cart:8104"]
+        labels: { service: cart-service }
+      - targets: ["ecom-discount:8105"]
+        labels: { service: discount-service }
+      - targets: ["ecom-order:8106"]
+        labels: { service: order-service }
+      - targets: ["ecom-payment:8107"]
+        labels: { service: payment-service }
+      - targets: ["ecom-notification:8108"]
+        labels: { service: notification-service }
+  - job_name: postgres
+    static_configs: [{ targets: ["ecom-postgres-exporter:9187"] }]
+  - job_name: mongodb
+    static_configs: [{ targets: ["ecom-mongodb-exporter:9216"] }]
+  - job_name: redis
+    static_configs: [{ targets: ["ecom-redis-exporter:9121"] }]
+  - job_name: kafka
+    static_configs: [{ targets: ["ecom-kafka-exporter:9308"] }]
+  - job_name: prometheus
+    static_configs: [{ targets: ["localhost:9090"] }]
+  - job_name: alertmanager
+    static_configs: [{ targets: ["ecom-alertmanager:9093"] }]

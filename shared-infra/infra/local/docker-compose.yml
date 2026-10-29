@@ -1,0 +1,325 @@
+# Shared stores, broker and observability for local development (docs/11-infrastructure.md §1).
+#   make up                      # stores + broker + observability
+#   make up OBSERVABILITY=0      # stores + broker only
+name: ecom-shared
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  # ---------------- stores ----------------
+  ecom-postgres:
+    <<: *restart
+    image: postgres:17-alpine
+    container_name: ecom-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD}
+      INVENTORY_DB_PASSWORD: ${INVENTORY_DB_PASSWORD}
+      DISCOUNT_DB_PASSWORD: ${DISCOUNT_DB_PASSWORD}
+      ORDER_DB_PASSWORD: ${ORDER_DB_PASSWORD}
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD}
+    command: ["postgres", "-c", "max_connections=300", "-c", "statement_timeout=5000", "-c", "idle_in_transaction_session_timeout=15000"]
+    ports: ["5432:5432"]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [ecom_net]
+
+  # Single-node replica set: multi-document transactions (outbox, inbox) need one.
+  ecom-mongo:
+    <<: *restart
+    image: mongo:8.2
+    container_name: ecom-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD}
+      CART_DB_PASSWORD: ${CART_DB_PASSWORD}
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+    entrypoint:
+      - bash
+      - -c
+      - |
+        openssl rand -base64 756 > /data/keyfile
+        chmod 400 /data/keyfile && chown mongodb:mongodb /data/keyfile
+        exec docker-entrypoint.sh mongod --replSet rs0 --keyFile /data/keyfile --bind_ip_all
+    ports: ["27017:27017"]
+    volumes:
+      - mongo_data:/data/db
+      - ./mongo/init-users.sh:/docker-entrypoint-initdb.d/init-users.sh:ro
+    healthcheck:
+      # Initiates the replica set on first run; healthy once the node reports ok.
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin
+          --eval "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'ecom-mongo:27017'}]}).ok }" | grep -q 1
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 15s
+    networks: [ecom_net]
+
+  ecom-redis:
+    <<: *restart
+    image: redis:7.4-alpine
+    container_name: ecom-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [ecom_net]
+
+  # ---------------- broker ----------------
+  # KRaft single node. Containers use ecom-kafka:9092, the host uses localhost:9094.
+  ecom-kafka:
+    <<: *restart
+    image: apache/kafka:3.9.1
+    container_name: ecom-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:9092,EXTERNAL://:9094,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://ecom-kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@ecom-kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_NUM_PARTITIONS: 3
+    ports: ["9094:9094"]
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+    networks: [ecom_net]
+
+  # One-shot: creates every topic and its .dlq (docs/08 §1).
+  ecom-kafka-init:
+    image: apache/kafka:3.9.1
+    container_name: ecom-kafka-init
+    depends_on:
+      ecom-kafka: { condition: service_healthy }
+    entrypoint: ["/bin/bash", "/scripts/create-topics.sh"]
+    volumes:
+      - ./kafka/create-topics.sh:/scripts/create-topics.sh:ro
+    restart: "no"
+    networks: [ecom_net]
+
+  ecom-kafka-ui:
+    <<: *restart
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: ecom-kafka-ui
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: ecom-kafka:9092
+    depends_on:
+      ecom-kafka: { condition: service_healthy }
+    ports: ["8080:8080"]
+    networks: [ecom_net]
+
+  # ---------------- mail ----------------
+  ecom-mailpit:
+    <<: *restart
+    image: axllent/mailpit:v1.27.0
+    container_name: ecom-mailpit
+    ports: ["8025:8025", "1025:1025"]
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks: [ecom_net]
+
+  # ---------------- observability (profile) ----------------
+  ecom-loki:
+    <<: *restart
+    profiles: [observability]
+    image: grafana/loki:3.3.2
+    container_name: ecom-loki
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    ports: ["3100:3100"]
+    volumes:
+      - ./observability/loki/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki_data:/loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3100/ready | grep -q ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks: [ecom_net]
+
+  ecom-tempo:
+    <<: *restart
+    profiles: [observability]
+    image: grafana/tempo:2.7.1
+    container_name: ecom-tempo
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    user: root
+    ports: ["3200:3200"]
+    volumes:
+      - ./observability/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    networks: [ecom_net]
+
+  ecom-prometheus:
+    <<: *restart
+    profiles: [observability]
+    image: prom/prometheus:v3.1.0
+    container_name: ecom-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    ports: ["9090:9090"]
+    depends_on: [ecom-alertmanager]
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9090/-/healthy >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks: [ecom_net]
+
+  ecom-alertmanager:
+    <<: *restart
+    profiles: [observability]
+    image: prom/alertmanager:v0.28.0
+    container_name: ecom-alertmanager
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/alertmanager"]
+    ports: ["9093:9093"]
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9093/-/healthy >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks: [ecom_net]
+
+  # Exporters scraped by Prometheus, shown on the Databases dashboard.
+  ecom-postgres-exporter:
+    <<: *restart
+    profiles: [observability]
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.16.0
+    container_name: ecom-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@ecom-postgres:5432/postgres?sslmode=disable
+    depends_on:
+      ecom-postgres: { condition: service_healthy }
+    networks: [ecom_net]
+
+  ecom-mongodb-exporter:
+    <<: *restart
+    profiles: [observability]
+    image: percona/mongodb_exporter:0.43.1
+    container_name: ecom-mongodb-exporter
+    command:
+      - --mongodb.uri=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@ecom-mongo:27017/admin?authSource=admin&directConnection=true
+      - --compatible-mode
+      - --collect-all
+    depends_on:
+      ecom-mongo: { condition: service_healthy }
+    networks: [ecom_net]
+
+  ecom-redis-exporter:
+    <<: *restart
+    profiles: [observability]
+    image: oliver006/redis_exporter:v1.66.0
+    container_name: ecom-redis-exporter
+    command: ["--redis.addr=redis://ecom-redis:6379"]
+    depends_on:
+      ecom-redis: { condition: service_healthy }
+    networks: [ecom_net]
+
+  ecom-kafka-exporter:
+    <<: *restart
+    profiles: [observability]
+    image: danielqsj/kafka-exporter:v1.8.0
+    container_name: ecom-kafka-exporter
+    command: ["--kafka.server=ecom-kafka:9092"]
+    depends_on:
+      ecom-kafka: { condition: service_healthy }
+    networks: [ecom_net]
+
+  ecom-alloy:
+    <<: *restart
+    profiles: [observability]
+    image: grafana/alloy:v1.5.1
+    container_name: ecom-alloy
+    command: ["run", "--server.http.listen-addr=0.0.0.0:12345", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
+    user: root
+    environment:
+      # share of successful traces kept (errors are always kept); production uses 10, local keeps all of them
+      TRACE_SUCCESS_SAMPLE_PERCENT: ${TRACE_SUCCESS_SAMPLE_PERCENT:-100}
+    depends_on: [ecom-loki, ecom-tempo]
+    ports: ["4317:4317", "4318:4318", "12345:12345"]
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy/data
+    networks: [ecom_net]
+
+  ecom-grafana:
+    <<: *restart
+    profiles: [observability]
+    image: grafana/grafana:11.4.0
+    container_name: ecom-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
+    depends_on: [ecom-loki, ecom-prometheus, ecom-tempo]
+    ports: ["3001:3000"]
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health | grep -q ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+    networks: [ecom_net]
+
+volumes:
+  postgres_data:
+  mongo_data:
+  redis_data:
+  kafka_data:
+  loki_data:
+  tempo_data:
+  prometheus_data:
+  alloy_data:
+  grafana_data:
+  alertmanager_data:
+
+networks:
+  ecom_net:
+    external: true

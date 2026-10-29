@@ -1,0 +1,28 @@
+# Alertmanager (docs/14 §5). Local: alerts are grouped and routed by severity and shown in the UI
+# (http://localhost:9093); no receiver sends anything. Production (P14) adds the real integrations below
+# (email / Slack / PagerDuty) under the same receiver names.
+route:
+  receiver: p3-ticket
+  group_by: [alertname, severity]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: [severity="P1"]
+      receiver: p1-page
+      group_wait: 0s
+      repeat_interval: 30m
+    - matchers: [severity="P2"]
+      receiver: p2-notify
+      repeat_interval: 2h
+
+receivers:
+  - name: p1-page
+  - name: p2-notify
+  - name: p3-ticket
+
+inhibit_rules:
+  # a down target explains the alerts of what that target would have reported
+  - source_matchers: [alertname="TargetDown"]
+    target_matchers: [alertname=~"OutboxBacklog|ConsumerLagHigh|SagaStuck"]
+    equal: []

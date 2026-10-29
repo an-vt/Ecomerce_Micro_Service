@@ -1,0 +1,112 @@
+// Grafana Alloy: Docker logs → Loki, OTLP traces → (tail sampling) → Tempo.  docs/11 §5.
+
+// ---- logs ----
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+
+  filter {
+    name   = "label"
+    values = ["com.docker.compose.project"]
+  }
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    target_label = "env"
+    replacement  = "local"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.json.receiver]
+}
+
+// Our services log JSON (platform-go/logger, slog). Only low-cardinality labels: service, env, level.
+loki.process "json" {
+  stage.json {
+    expressions = {
+      level = "level",
+    }
+  }
+
+  stage.labels {
+    values = {
+      level = "",
+    }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://ecom-loki:3100/loki/api/v1/push"
+  }
+}
+
+// ---- traces: 100% of errors + a share of the rest (10% in production; the local compose keeps
+// every trace so that any request can be followed, see TRACE_SUCCESS_SAMPLE_PERCENT) ----
+otelcol.receiver.otlp "default" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    traces = [otelcol.processor.tail_sampling.default.input]
+  }
+}
+
+otelcol.processor.tail_sampling "default" {
+  decision_wait = "10s"
+
+  policy {
+    name = "errors"
+    type = "status_code"
+
+    status_code {
+      status_codes = ["ERROR"]
+    }
+  }
+
+  policy {
+    name = "sample-successes"
+    type = "probabilistic"
+
+    probabilistic {
+      sampling_percentage = coalesce(sys.env("TRACE_SUCCESS_SAMPLE_PERCENT"), 10)
+    }
+  }
+
+  output {
+    traces = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "ecom-tempo:4317"
+
+    tls {
+      insecure = true
+    }
+  }
+}
