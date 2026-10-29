@@ -69,6 +69,7 @@ func (u Refresh) detectReuse(ctx context.Context, hash string) error {
 		}
 		return err
 	}
+	u.d.security().RefreshReuseDetected() // the detection is the signal, whether or not the revocation below succeeds
 	used.Revoke(domain.RevokeReuseDetected, u.d.Clock.Now())
 	if err := u.d.Tx.WithinTx(ctx, func(ctx context.Context) error { return u.d.Sessions.Revoke(ctx, used) }); err != nil {
 		return err

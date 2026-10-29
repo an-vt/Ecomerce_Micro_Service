@@ -1,0 +1,125 @@
+# Alert rules (docs/14 §5). Validated by `make check-infra` (promtool) and by scripts/check-observability.py, which also
+# checks that every metric used here is really exported by a service or an exporter.
+#
+# Severity follows the Alertmanager routing: P1 = act now (someone is paged), P2 = look soon (notified), P3 = ticket.
+groups:
+  - name: availability
+    rules:
+      - alert: ServiceDown
+        expr: up{job="ecom-services"} == 0
+        for: 1m
+        labels: { severity: P1 }
+        annotations:
+          summary: "{{ $labels.service }} is down"
+          description: "Prometheus cannot scrape {{ $labels.service }} ({{ $labels.instance }}) for 1 minute. Check `docker logs` of the container and its /health/ready."
+
+  - name: errors-and-latency
+    rules:
+      - alert: GatewayHighErrorRate
+        # 5xx share of the REST traffic, ignoring a trickle (under ~3 requests a minute) where one failure is 100 %
+        expr: |
+          sum(rate(http_server_duration_seconds_count{status=~"5.."}[5m])) / sum(rate(http_server_duration_seconds_count[5m])) > 0.05
+          and sum(rate(http_server_duration_seconds_count[5m])) > 0.05
+        for: 5m
+        labels: { severity: P2 }
+        annotations:
+          summary: "More than 5 % of the API requests fail with 5xx"
+          description: "{{ $value | humanizePercentage }} of the requests of the last 5 minutes. See the Services overview dashboard, then the logs of the failing route."
+
+      - alert: GrpcHighErrorRate
+        # only codes that mean "the service failed"; NotFound, InvalidArgument, FailedPrecondition... are normal answers
+        expr: |
+          sum by (service) (rate(grpc_server_duration_seconds_count{code=~"Unavailable|Internal|Unknown|DeadlineExceeded|DataLoss|ResourceExhausted"}[5m]))
+            / sum by (service) (rate(grpc_server_duration_seconds_count[5m])) > 0.05
+          and sum by (service) (rate(grpc_server_duration_seconds_count[5m])) > 0.05
+        for: 5m
+        labels: { severity: P2 }
+        annotations:
+          summary: "{{ $labels.service }} fails more than 5 % of its gRPC calls"
+          description: "{{ $value | humanizePercentage }} of the calls of the last 5 minutes ended Unavailable, Internal, Unknown, DeadlineExceeded or ResourceExhausted."
+
+      - alert: GatewayHighLatency
+        expr: |
+          histogram_quantile(0.95, sum by (le, route) (rate(http_server_duration_seconds_bucket{route!~"/health.*|/metrics|unmatched"}[5m]))) > 1
+        for: 5m
+        labels: { severity: P2 }
+        annotations:
+          summary: "p95 of {{ $labels.route }} is above 1 s"
+          description: "p95 is {{ $value | humanizeDuration }} over the last 5 minutes."
+
+      - alert: GrpcHighLatency
+        expr: |
+          histogram_quantile(0.95, sum by (le, service) (rate(grpc_server_duration_seconds_bucket[5m]))) > 1
+        for: 5m
+        labels: { severity: P2 }
+        annotations:
+          summary: "p95 of {{ $labels.service }} gRPC calls is above 1 s"
+          description: "p95 is {{ $value | humanizeDuration }} over the last 5 minutes."
+
+      - alert: CircuitBreakerOpen
+        expr: circuit_breaker_state == 2
+        for: 1m
+        labels: { severity: P2 }
+        annotations:
+          summary: "Circuit to {{ $labels.target }}/{{ $labels.method }} is open (seen from {{ $labels.service }})"
+          description: "Calls are failing fast with 503 instead of reaching {{ $labels.target }}. Look at that service first."
+
+  - name: messaging
+    rules:
+      - alert: DlqMessages
+        expr: sum by (topic) (increase(kafka_dlq_total[5m])) > 0
+        labels: { severity: P1 }
+        annotations:
+          summary: "Messages were dead-lettered from {{ $labels.topic }}"
+          description: "{{ $value }} message(s) in the last 5 minutes. Read `{{ $labels.topic }}.dlq` (Kafka UI) for the x-error headers; fix the cause, then replay."
+
+      - alert: ConsumerLagHigh
+        expr: sum by (consumergroup, topic) (kafka_consumergroup_lag) > 1000
+        for: 5m
+        labels: { severity: P2 }
+        annotations:
+          summary: "{{ $labels.consumergroup }} is {{ $value }} messages behind on {{ $labels.topic }}"
+          description: "The consumer is slower than the producers, or stopped."
+
+      - alert: OutboxBacklog
+        expr: outbox_oldest_age_seconds > 60
+        for: 2m
+        labels: { severity: P1 }
+        annotations:
+          summary: "{{ $labels.service }} has outbox messages waiting for {{ $value | humanizeDuration }}"
+          description: "Events and saga commands are stuck between the database and Kafka: checkouts will time out. Check the relay logs and the broker."
+
+  - name: checkout-saga
+    rules:
+      - alert: SagaCompensationRatioHigh
+        expr: |
+          sum(rate(saga_failed_total[15m])) / sum(rate(saga_started_total[15m])) > 0.2
+          and sum(rate(saga_started_total[15m])) > 0.002
+        for: 10m
+        labels: { severity: P2 }
+        annotations:
+          summary: "More than 20 % of the checkouts end cancelled"
+          description: "{{ $value | humanizePercentage }} over 15 minutes. The Checkout saga dashboard shows the reasons (declined cards, stock, provider)."
+
+      - alert: SagaStuck
+        expr: sum(increase(saga_step_timeouts_total[10m])) > 5
+        labels: { severity: P1 }
+        annotations:
+          summary: "Checkout steps are timing out ({{ $value }} in 10 minutes)"
+          description: "A participant (inventory, discount, payment) is not answering. Look for open circuits, outbox backlog and DLQ messages."
+
+  - name: security
+    rules:
+      - alert: RefreshTokenReuse
+        expr: sum(increase(auth_refresh_reuse_detected_total[5m])) > 3
+        labels: { severity: P2 }
+        annotations:
+          summary: "Refresh tokens are being replayed ({{ $value }} in 5 minutes)"
+          description: "Either stolen tokens are in use or a client keeps a stale copy. The sessions were revoked; look at the auth logs for the accounts."
+
+      - alert: RateLimitedSpike
+        expr: sum(increase(rate_limited_total[5m])) > 100
+        labels: { severity: P3 }
+        annotations:
+          summary: "The API refused {{ $value }} requests in 5 minutes for exceeding the rate limit"
+          description: "Scraping or credential stuffing. rate_limited_total by route shows what is being hit."

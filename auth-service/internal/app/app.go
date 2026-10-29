@@ -94,7 +94,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 		Accounts: repos.Accounts, Sessions: repos.Sessions, Otps: repos.Otps, ApiKeys: repos.ApiKeys, Rbac: repos.Rbac,
 		Hasher: hasher, Signer: signer, Secrets: security.Secrets{},
 		Denylist: redisx.NewDenylist(rdb, "auth:revoked:"), Tx: pgdb.NewTxManager(store), Outbox: pgoutbox.NewWriter(store),
-		Clock: clock.System{}, IDs: idgen.UUID{},
+		Clock: clock.System{}, IDs: idgen.UUID{}, Security: newSecurityMetrics(m.Registry),
 		Settings: usecase.Settings{RefreshTTL: cfg.RefreshTTL, OTPTTL: cfg.OTPTTL, VerifyLinkBase: cfg.VerifyLinkBase},
 	})
 

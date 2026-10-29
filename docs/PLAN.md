@@ -267,8 +267,8 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 
 ## P12 — Dashboards & alerts
 
-- [ ] **P12.1** Six Grafana dashboards ([14 §4](14-observability.md#4-dashboards-provisioned-in-observabilitygrafanadashboards)) as JSON, provisioned.
-- [ ] **P12.2** `alerts.yml` ([14 §5](14-observability.md#5-alerts-observabilityprometheusrulesalertsyml)); `make check-infra` runs `promtool check rules` and `docker compose config -q` for every compose file.
+- [x] **P12.1** Six Grafana dashboards ([14 §4](14-observability.md#4-dashboards-provisioned-in-observabilitygrafanadashboards)) as JSON, provisioned.
+- [x] **P12.2** `alerts.yml` ([14 §5](14-observability.md#5-alerts-observabilityprometheusrulesalertsyml)); `make check-infra` runs `promtool check rules` and `docker compose config -q` for every compose file.
 
 | # | Acceptance | Expectation |
 |---|---|---|

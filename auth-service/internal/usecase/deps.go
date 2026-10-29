@@ -36,7 +36,28 @@ type Deps struct {
 	Clock    clock.Clock
 	IDs      idgen.Generator
 	Settings Settings
+
+	// Security receives the signals an operator should alert on. Optional.
+	Security SecurityEvents
 }
+
+// SecurityEvents are the security-relevant things the use cases notice (docs/14: auth_refresh_reuse_detected_total).
+type SecurityEvents interface {
+	// RefreshReuseDetected is called when a refresh token that was already rotated away is presented again: either a
+	// stolen token or a client with a stale copy. Either way the session is revoked.
+	RefreshReuseDetected()
+}
+
+func (d *Deps) security() SecurityEvents {
+	if d.Security == nil {
+		return noSecurity{}
+	}
+	return d.Security
+}
+
+type noSecurity struct{}
+
+func (noSecurity) RefreshReuseDetected() {}
 
 // emit records a domain event in the outbox of the current transaction.
 func (d *Deps) emit(ctx context.Context, topic string, ev event.Event) error {

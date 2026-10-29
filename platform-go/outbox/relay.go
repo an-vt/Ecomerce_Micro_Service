@@ -7,6 +7,7 @@ import (
 
 	"github.com/an-vt/ecom/platform-go/kafkax"
 	"github.com/an-vt/ecom/platform-go/metrics"
+	"github.com/an-vt/ecom/platform-go/otelx"
 	"github.com/an-vt/ecom/platform-go/retry"
 )
 
@@ -133,6 +134,9 @@ func (r *Relay) countError(topic string) {
 
 // Run polls until ctx is cancelled: publish, update the backlog gauges, and purge old sent rows hourly.
 func (r *Relay) Run(ctx context.Context) error {
+	// Polling an empty outbox several times a second must not create a trace each time. Publishing a message continues
+	// the trace stored in its headers (the producer extracts it), so real traces are unaffected.
+	ctx = otelx.Untraced(ctx)
 	tick := time.NewTicker(r.o.Poll)
 	defer tick.Stop()
 	nextPurge := r.o.Now()

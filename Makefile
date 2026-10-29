@@ -44,8 +44,11 @@ gen-proto: ## regenerate gRPC code with buf into proto/gen/go
 gen-keys: ## generate local RS256 key pair into secrets/
 	./scripts/gen-keys.sh
 
-check-infra: ## validate compose files and prometheus rules
+check-infra: ## validate compose files, prometheus / alertmanager config, rules, dashboards
 	./scripts/check-infra.sh
+
+dashboards: ## regenerate the Grafana dashboards (observability/grafana/gen/dashboards.py)
+	python3 shared-infra/infra/local/observability/grafana/gen/dashboards.py
 
 start: ## start shared infra + all implemented services
 	./scripts/start-all.sh
@@ -65,4 +68,4 @@ seed: ## run seeders of every running service
 new-service: ## scaffold a service: NAME= SHORT= HTTP= GRPC= DB=pg|mongo|none
 	./tools/newservice/new-service.sh NAME=$(NAME) SHORT=$(SHORT) HTTP=$(HTTP) GRPC=$(GRPC) DB=$(DB)
 
-.PHONY: help fmt vet lint tidy tidy-check test test-integration test-e2e cover cover-unit gen-proto gen-keys check-infra start stop status migrate seed new-service
+.PHONY: help fmt vet lint tidy tidy-check test test-integration test-e2e cover cover-unit gen-proto gen-keys check-infra dashboards start stop status migrate seed new-service

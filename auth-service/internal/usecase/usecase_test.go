@@ -24,7 +24,13 @@ import (
 
 var ctx = context.Background()
 
+// countingSecurity records the security signals the use cases raise.
+type countingSecurity struct{ reuse int }
+
+func (c *countingSecurity) RefreshReuseDetected() { c.reuse++ }
+
 type fx struct {
+	security *countingSecurity
 	w        *fake.World
 	clk      *clock.Fixed
 	hasher   *fake.Hasher
@@ -40,10 +46,10 @@ func newFx(t *testing.T) *fx {
 	signer := fake.NewSigner(15*time.Minute, clk)
 	verifier := jwtx.NewVerifier("ecom-auth", "ecom", clk, nil)
 	require.NoError(t, verifier.SetKeys(signer.JWKS()))
-	f := &fx{w: w, clk: clk, hasher: &fake.Hasher{}, secrets: &fake.Secrets{}, verifier: verifier}
+	f := &fx{security: &countingSecurity{}, w: w, clk: clk, hasher: &fake.Hasher{}, secrets: &fake.Secrets{}, verifier: verifier}
 	f.set = usecase.NewSet(&usecase.Deps{
 		Accounts: w.Accounts(), Sessions: w.Sessions(), Otps: w.Otps(), ApiKeys: w.ApiKeys(), Rbac: w.Rbac(),
-		Hasher: f.hasher, Signer: signer, Secrets: f.secrets, Denylist: w, Tx: w, Outbox: w,
+		Hasher: f.hasher, Signer: signer, Secrets: f.secrets, Denylist: w, Tx: w, Outbox: w, Security: f.security,
 		Clock: clk, IDs: &idgen.Sequence{Prefix: "id-"},
 		Settings: usecase.Settings{RefreshTTL: 7 * 24 * time.Hour, OTPTTL: 5 * time.Minute, VerifyLinkBase: "http://localhost:8088/v1/api/user/welcome_back"},
 	})
@@ -237,6 +243,8 @@ func TestReplayingARotatedTokenRevokesTheWholeSession(t *testing.T) {
 	assert.Equal(t, domain.CodeTokenReused, code(err))
 	assert.Equal(t, errs.KindPermissionDenied, errs.KindOf(err), "403 at the gateway")
 
+	assert.Equal(t, 1, f.security.reuse, "one replay, one signal for the alert on token theft")
+
 	sess, err := f.w.Sessions().FindByID(ctx, first.Tokens.SessionID)
 	require.NoError(t, err)
 	assert.True(t, sess.Revoked(), "the revocation outlives the error")
@@ -305,6 +313,7 @@ func TestReuseDetectionReportsInfrastructureFailures(t *testing.T) {
 	_, err = f.set.Refresh.Execute(ctx, usecase.RefreshInput{RefreshToken: first.Tokens.RefreshToken})
 	require.Error(t, err)
 	assert.NotEqual(t, domain.CodeTokenReused, code(err), "the caller learns that the denylist write failed")
+	assert.Equal(t, 1, f.security.reuse, "the replay was still detected")
 	sess, _ := f.w.Sessions().FindByID(ctx, first.Tokens.SessionID)
 	assert.True(t, sess.Revoked(), "but the session is revoked in the database regardless")
 }

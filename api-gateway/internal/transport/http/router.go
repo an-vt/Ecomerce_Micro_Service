@@ -73,7 +73,7 @@ func NewRouter(o Options) *gin.Engine {
 	r.HandleMethodNotAllowed = true
 	_ = r.SetTrustedProxies(o.TrustedProxies) // nil: trust no proxy, the client IP is the socket peer
 
-	r.Use(requestID(o.IDs), recoverer(), accessLog(), httpMetrics(o.Metrics.Registry), securityHeaders(o.CookieSecure),
+	r.Use(tracing(), requestID(o.IDs), recoverer(), accessLog(), httpMetrics(o.Metrics.Registry), securityHeaders(o.CookieSecure),
 		cors(o.CORSOrigins), bodyLimit(o.BodyLimit))
 	r.NoRoute(func(c *gin.Context) { fail(c, errs.NotFound("ROUTE_NOT_FOUND", "no such route")) })
 	r.NoMethod(func(c *gin.Context) {
@@ -89,10 +89,11 @@ func NewRouter(o Options) *gin.Engine {
 	r.GET("/docs/openapi.yaml", func(c *gin.Context) { c.Data(stdhttp.StatusOK, "application/yaml", openapi.Spec) })
 
 	window := time.Minute
+	limited := newRateLimitedMetric(o.Metrics.Registry)
 	v1 := r.Group("/v1/api",
 		apiKey(o.Auth, o.APICache, o.APIKeyTTL, o.APIKeyNegTTL, PublicPermission),
-		rateLimit(o.Limiter, "all", o.RateLimit, window))
-	strict := rateLimit(o.Limiter, "auth", o.AuthRateLimit, window)
+		rateLimit(o.Limiter, "all", o.RateLimit, window, limited))
+	strict := rateLimit(o.Limiter, "auth", o.AuthRateLimit, window, limited)
 	authed := jwtAuth(o.Verifier, o.Denylist)
 
 	auth := &Auth{client: o.Auth, cookieSecure: o.CookieSecure, cookieTTL: o.CookieTTL}

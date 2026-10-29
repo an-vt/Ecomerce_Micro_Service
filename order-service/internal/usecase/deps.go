@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/an-vt/ecom/order-service/internal/domain"
@@ -174,7 +175,22 @@ func (d *Deps) commit(ctx context.Context, sg *domain.Saga, o *domain.Order, res
 		return err
 	}
 	d.report(sg, res, now)
+	d.logStep(ctx, sg, o, res)
 	return nil
+}
+
+// logStep writes one line per saga step. Run inside the message's trace, it is what a trace links to in Loki: which
+// order, where the saga is now, what it sent.
+func (d *Deps) logStep(ctx context.Context, sg *domain.Saga, o *domain.Order, res domain.Result) {
+	level := slog.LevelInfo
+	switch {
+	case res.Finished == domain.StateFailed || res.Compensating:
+		level = slog.LevelWarn
+	case res.Resent:
+		level = slog.LevelWarn // a deadline passed and a command is being sent again
+	}
+	slog.Default().Log(ctx, level, "saga step", "order_id", sg.ID(), "saga_state", string(sg.State()), "order_status", string(o.Status()),
+		"commands", res.Commands, "reason", sg.Snapshot().Reason, "timed_out", string(res.TimedOut))
 }
 
 // announce publishes the order event of a finished checkout.

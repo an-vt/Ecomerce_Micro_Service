@@ -23,6 +23,6 @@ receivers:
 
 inhibit_rules:
   # a down target explains the alerts of what that target would have reported
-  - source_matchers: [alertname="TargetDown"]
+  - source_matchers: [alertname="ServiceDown"]
     target_matchers: [alertname=~"OutboxBacklog|ConsumerLagHigh|SagaStuck"]
     equal: []

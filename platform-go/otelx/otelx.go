@@ -49,6 +49,26 @@ func normalise(ep string) string {
 	return "http://" + ep
 }
 
+// untraced is a valid but unsampled remote span context: with the default parent-based sampler, every span started
+// under it is dropped instead of exported. Its ids are a recognisable constant so IsUntraced can tell it apart from a
+// real trace.
+var untraced = trace.NewSpanContext(trace.SpanContextConfig{
+	TraceID: trace.TraceID{0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef},
+	SpanID:  trace.SpanID{0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef},
+	Remote:  true, // TraceFlags 0: not sampled
+})
+
+// Untraced returns ctx under which nothing is traced. Use it for work nobody wants a trace of: health checks and the
+// polling loops of the outbox relay, which would otherwise create hundreds of one-span root traces a minute and bury
+// the traces that matter. Work that continues a request (a message with a stored traceparent) re-establishes its own
+// parent with Extract and is unaffected.
+func Untraced(ctx context.Context) context.Context {
+	return trace.ContextWithRemoteSpanContext(ctx, untraced)
+}
+
+// IsUntraced reports whether sc is the placeholder of Untraced (loggers use it to avoid printing a made-up trace id).
+func IsUntraced(sc trace.SpanContext) bool { return sc.TraceID() == untraced.TraceID() }
+
 // Tracer returns the named tracer.
 func Tracer(name string) trace.Tracer { return otel.Tracer(name) }
 

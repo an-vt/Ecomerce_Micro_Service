@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/an-vt/ecom/platform-go/logger"
+	"github.com/an-vt/ecom/platform-go/otelx"
 )
 
 func decode(t *testing.T, buf *bytes.Buffer) map[string]any {
@@ -87,4 +88,13 @@ func TestParseLevel(t *testing.T) {
 
 func TestDefaultWriterIsStdout(t *testing.T) {
 	assert.NotNil(t, logger.New(logger.Options{Service: "x"}))
+}
+
+// Work done under otelx.Untraced is not traced, so printing its (made-up) trace id would send an operator looking for a
+// trace that does not exist.
+func TestUntracedWorkLogsNoTraceID(t *testing.T) {
+	var buf bytes.Buffer
+	l := logger.New(logger.Options{Writer: &buf})
+	l.InfoContext(otelx.Untraced(context.Background()), "polling")
+	assert.NotContains(t, decode(t, &buf), "trace_id")
 }

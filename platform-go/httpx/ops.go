@@ -13,6 +13,8 @@ import (
 	"os"
 	"sort"
 	"time"
+
+	"github.com/an-vt/ecom/platform-go/otelx"
 )
 
 // Check reports whether a dependency is usable; it must respect ctx's deadline.
@@ -25,7 +27,8 @@ func NewOpsHandler(metrics http.Handler, checks map[string]Check) http.Handler {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	mux.HandleFunc("GET /health/ready", func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		// health checks run every few seconds: tracing them would drown the real traces
+		ctx, cancel := context.WithTimeout(otelx.Untraced(r.Context()), 2*time.Second)
 		defer cancel()
 		failed := map[string]string{}
 		names := make([]string, 0, len(checks))

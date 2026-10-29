@@ -127,7 +127,15 @@ func bodyLimit(max int64) gin.HandlerFunc {
 
 // rateLimit allows limit requests per window and client IP, per bucket name. If Redis is unavailable the request
 // is let through (and logged): rate limiting is protection, not a gate that may take the API down.
-func rateLimit(l *redisx.Limiter, bucket string, limit int, window time.Duration) gin.HandlerFunc {
+// newRateLimitedMetric registers rate_limited_total{route}: requests refused with 429 (docs/14), the signal of scraping or
+// credential stuffing.
+func newRateLimitedMetric(reg prometheus.Registerer) *prometheus.CounterVec {
+	c := prometheus.NewCounterVec(prometheus.CounterOpts{Name: "rate_limited_total", Help: "Requests refused by the rate limiter."}, []string{"route"})
+	reg.MustRegister(c)
+	return c
+}
+
+func rateLimit(l *redisx.Limiter, bucket string, limit int, window time.Duration, limited *prometheus.CounterVec) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		res, err := l.Allow(c.Request.Context(), bucket+":"+c.ClientIP(), limit, window)
 		if err != nil {
@@ -143,6 +151,11 @@ func rateLimit(l *redisx.Limiter, bucket string, limit int, window time.Duration
 		if !res.Allowed {
 			secs := int(res.RetryAfter.Seconds()) + 1
 			c.Header("Retry-After", strconv.Itoa(secs))
+			route := c.FullPath()
+			if route == "" {
+				route = "unmatched"
+			}
+			limited.WithLabelValues(route).Inc()
 			fail(c, errs.ResourceExhausted("RATE_LIMITED", "too many requests, slow down"))
 			return
 		}

@@ -60,3 +60,40 @@ func TestHeaderCarrier(t *testing.T) {
 	assert.Equal(t, "1", c.Get("a"))
 	assert.Equal(t, []string{"a"}, c.Keys())
 }
+
+func TestUntracedDropsEverythingStartedUnderIt(t *testing.T) {
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.AlwaysSample())))
+	otel.SetTracerProvider(tp)
+
+	// a normal root span is sampled...
+	_, root := otelx.Tracer("t").Start(context.Background(), "root")
+	assert.True(t, root.SpanContext().IsSampled())
+	root.End()
+
+	// ...but the same work under Untraced is not: it is what keeps health checks and polling out of Tempo
+	ctx := otelx.Untraced(context.Background())
+	_, quiet := otelx.Tracer("t").Start(ctx, "poll")
+	defer quiet.End()
+	assert.False(t, quiet.SpanContext().IsSampled())
+	assert.True(t, otelx.IsUntraced(trace.SpanContextFromContext(ctx)))
+	assert.False(t, otelx.IsUntraced(root.SpanContext()), "a real trace is never mistaken for the placeholder")
+}
+
+func TestAMessageWithAStoredTraceparentIsTracedEvenInAnUntracedLoop(t *testing.T) {
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.AlwaysSample())))
+	otel.SetTracerProvider(tp)
+	requestCtx, request := otelx.Tracer("t").Start(context.Background(), "request")
+	defer request.End()
+	stored := otelx.Inject(requestCtx) // what the outbox row keeps
+
+	relayCtx := otelx.Untraced(context.Background()) // the polling loop
+	publishCtx := otelx.Extract(relayCtx, stored)    // what the producer does for each message
+	_, publish := otelx.Tracer("t").Start(publishCtx, "publish")
+	defer publish.End()
+	assert.True(t, publish.SpanContext().IsSampled(), "the saga step stays in the request's trace")
+	assert.Equal(t, request.SpanContext().TraceID(), publish.SpanContext().TraceID())
+
+	_, bare := otelx.Tracer("t").Start(otelx.Extract(relayCtx, map[string]string{}), "publish")
+	defer bare.End()
+	assert.False(t, bare.SpanContext().IsSampled(), "a message with no trace is not given a fresh one")
+}

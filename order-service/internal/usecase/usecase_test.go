@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -611,4 +612,48 @@ func TestListOrders(t *testing.T) {
 	require.Len(t, res.Items, 2)
 	assert.True(t, res.Items[0].CreatedAt.After(res.Items[1].CreatedAt), "newest first")
 	assert.Equal(t, 1, res.Page)
+}
+
+// capture swaps the default logger for one that records its lines.
+type capture struct{ lines []map[string]any }
+
+func (c *capture) Enabled(context.Context, slog.Level) bool { return true }
+func (c *capture) WithAttrs([]slog.Attr) slog.Handler       { return c }
+func (c *capture) WithGroup(string) slog.Handler            { return c }
+func (c *capture) Handle(_ context.Context, r slog.Record) error {
+	m := map[string]any{"msg": r.Message, "level": r.Level.String()}
+	r.Attrs(func(a slog.Attr) bool { m[a.Key] = a.Value.Any(); return true })
+	c.lines = append(c.lines, m)
+	return nil
+}
+
+func TestEverySagaStepIsLoggedWithTheOrderAndTheState(t *testing.T) {
+	c := &capture{}
+	prev := slog.Default()
+	slog.SetDefault(slog.New(c))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	r := newRig()
+	id := r.place(t, "key-1", "")
+	r.reply(t, saga.StockReserved{OrderID: id})
+	r.reply(t, saga.PaymentFailed{OrderID: id, Reason: saga.ReasonCardDeclined})
+	r.reply(t, saga.StockReleased{OrderID: id})
+
+	var steps []map[string]any
+	for _, l := range c.lines {
+		if l["msg"] == "saga step" {
+			steps = append(steps, l)
+		}
+	}
+	require.Len(t, steps, 3, "StockReserved, PaymentFailed, StockReleased")
+	for _, s := range steps {
+		assert.Equal(t, id, s["order_id"])
+	}
+	assert.Equal(t, "PROCESSING_PAYMENT", steps[0]["saga_state"])
+	assert.Equal(t, "INFO", steps[0]["level"])
+	assert.Equal(t, "COMPENSATING", steps[1]["saga_state"])
+	assert.Equal(t, "WARN", steps[1]["level"], "a compensation is worth a second look")
+	assert.Equal(t, saga.ReasonCardDeclined, steps[1]["reason"])
+	assert.Equal(t, "FAILED", steps[2]["saga_state"])
+	assert.Equal(t, "CANCELLED", steps[2]["order_status"])
 }

@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/an-vt/ecom/platform-go/otelx"
 )
 
 type ctxKey struct{}
@@ -82,7 +84,7 @@ func New(o Options) *slog.Logger {
 type ctxHandler struct{ slog.Handler }
 
 func (h *ctxHandler) Handle(ctx context.Context, r slog.Record) error {
-	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
+	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() && !otelx.IsUntraced(sc) {
 		r.AddAttrs(slog.String("trace_id", sc.TraceID().String()), slog.String("span_id", sc.SpanID().String()))
 	}
 	if id := RequestID(ctx); id != "" {

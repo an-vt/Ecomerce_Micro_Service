@@ -410,6 +410,30 @@ func TestRateLimitPerIP(t *testing.T) {
 	assert.Equal(t, "RATE_LIMITED", r.errCode())
 	assert.NotEmpty(t, r.Header().Get("Retry-After"))
 	assert.Equal(t, "0", r.Header().Get("X-RateLimit-Remaining"))
+
+	// the refusal is counted per route, for the alert on abuse
+	assert.Equal(t, 1.0, counterValue(t, g, "rate_limited_total", "route", "/v1/api/user/welcome_back"))
+	g.call("GET", "/v1/api/user/welcome_back?token=t", "")
+	assert.Equal(t, 2.0, counterValue(t, g, "rate_limited_total", "route", "/v1/api/user/welcome_back"))
+}
+
+func counterValue(t *testing.T, g *gw, name, label, value string) float64 {
+	t.Helper()
+	families, err := g.metrics.Registry.Gather()
+	require.NoError(t, err)
+	for _, f := range families {
+		if f.GetName() != name {
+			continue
+		}
+		for _, m := range f.GetMetric() {
+			for _, l := range m.GetLabel() {
+				if l.GetName() == label && l.GetValue() == value {
+					return m.GetCounter().GetValue()
+				}
+			}
+		}
+	}
+	return 0
 }
 
 func TestLoginRoutesHaveAStricterLimit(t *testing.T) {
