@@ -358,3 +358,18 @@ paths:
       security: [{ apiKey: [], bearerAuth: [] }]
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string } }]
       responses: { '200': { $ref: '#/components/responses/Ok' }, '404': { $ref: '#/components/responses/Error' } }
+  /v1/api/notification:
+    get:
+      tags: [notification]
+      summary: The caller's notifications plus the broadcasts (new products, vouchers), newest first
+      description: The receiver is always the token's account. Broadcasts have no per-person read state, so they always show as unread.
+      security: [{ apiKey: [], bearerAuth: [] }]
+      parameters: [{ name: type, in: query, schema: { type: string, enum: [ALL, ORDER-001, ORDER-002, PROMOTION-001, SHOP-001] } }, { name: isRead, in: query, schema: { type: boolean } }, { name: page, in: query, schema: { type: integer } }, { name: limit, in: query, schema: { type: integer } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '400': { $ref: '#/components/responses/Error' } }
+  /v1/api/email/new_template:
+    post:
+      tags: [notification]
+      summary: Create an email template (administrators; RBAC createAny:template). Placeholders are written {{name}}
+      security: [{ apiKey: [], bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [name, html], properties: { name: { type: string }, html: { type: string, maxLength: 102400 } } } } } }
+      responses: { '201': { $ref: '#/components/responses/Ok' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }

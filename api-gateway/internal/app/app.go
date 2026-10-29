@@ -31,6 +31,7 @@ import (
 	catalogv1 "github.com/an-vt/ecom/proto/gen/go/catalog/v1"
 	discountv1 "github.com/an-vt/ecom/proto/gen/go/discount/v1"
 	inventoryv1 "github.com/an-vt/ecom/proto/gen/go/inventory/v1"
+	notificationv1 "github.com/an-vt/ecom/proto/gen/go/notification/v1"
 	orderv1 "github.com/an-vt/ecom/proto/gen/go/order/v1"
 )
 
@@ -61,41 +62,12 @@ func Run(ctx context.Context, cfg config.Config) error {
 		ErrorRatio: cfg.BreakerError, MinRequests: uint32(cfg.BreakerMin), Window: cfg.BreakerWin, ResetTimeout: cfg.BreakerReset,
 		Observer: m.BreakerObserver(),
 	}))
-	dial := func(name, addr string) (*grpc.ClientConn, error) {
-		return grpcx.Dial(grpcx.ClientConfig{Target: addr, Name: name, Timeout: cfg.GRPCTimeout, Breakers: breakers, Metrics: m})
-	}
-
-	authConn, err := dial("auth", cfg.AuthAddr)
+	up, closeUpstreams, err := dialUpstreams(cfg, breakers, m)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = authConn.Close() }()
-	inventoryConn, err := dial("inventory", cfg.InventoryAddr)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = inventoryConn.Close() }()
-	cartConn, err := dial("cart", cfg.CartAddr)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = cartConn.Close() }()
-	discountConn, err := dial("discount", cfg.DiscountAddr)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = discountConn.Close() }()
-	orderConn, err := dial("order", cfg.OrderAddr)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = orderConn.Close() }()
-	authClient, rbacClient := authv1.NewAuthServiceClient(authConn), authv1.NewRbacServiceClient(authConn)
-	catalogConn, err := dial("catalog", cfg.CatalogAddr)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = catalogConn.Close() }()
+	defer closeUpstreams()
+	authClient, rbacClient := up.Auth, up.Rbac
 
 	// Tokens are verified locally with the public key published by auth-service (refetched on key rotation).
 	verifier := jwtx.NewVerifier(cfg.JWTIssuer, cfg.JWTAudience, clock.System{}, func(ctx context.Context) (jwtx.JWKS, error) {
@@ -122,7 +94,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 	}, cfg.GrantsCacheTTL, clock.System{})
 
 	router := transport.NewRouter(transport.Options{
-		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient, Catalog: catalogv1.NewCatalogServiceClient(catalogConn), Inventory: inventoryv1.NewInventoryServiceClient(inventoryConn), Cart: cartv1.NewCartServiceClient(cartConn), Discount: discountv1.NewDiscountServiceClient(discountConn), Order: orderv1.NewOrderServiceClient(orderConn)},
+		Upstreams: up,
 		Verifier:  verifier, Denylist: redisx.NewDenylist(rdb, "auth:revoked:"), Limiter: redisx.NewLimiter(rdb, "rl:"),
 		APICache: redisx.NewCache(rdb, "apikey:"), Grants: grants, Metrics: m, IDs: idgen.ULID{},
 		Checks: map[string]httpx.Check{
@@ -146,4 +118,47 @@ func Run(ctx context.Context, cfg config.Config) error {
 	err = httpx.Serve(ctx, ":"+strconv.Itoa(cfg.HTTPPort), router, log)
 	log.Info("api-gateway stopped")
 	return err
+}
+
+// upstream is one backend service of the gateway.
+type upstream struct {
+	name, addr string
+	bind       func(*grpc.ClientConn, *transport.Upstreams)
+}
+
+// dialUpstreams opens one gRPC channel per backend, each with its own deadline and its own breakers in the shared
+// registry (the bulkhead of docs/09). The returned function closes them all.
+func dialUpstreams(cfg config.Config, breakers *breaker.Registry, m *metrics.Metrics) (transport.Upstreams, func(), error) {
+	list := []upstream{
+		{"auth", cfg.AuthAddr, func(c *grpc.ClientConn, u *transport.Upstreams) {
+			u.Auth, u.Rbac = authv1.NewAuthServiceClient(c), authv1.NewRbacServiceClient(c)
+		}},
+		{"catalog", cfg.CatalogAddr, func(c *grpc.ClientConn, u *transport.Upstreams) { u.Catalog = catalogv1.NewCatalogServiceClient(c) }},
+		{"inventory", cfg.InventoryAddr, func(c *grpc.ClientConn, u *transport.Upstreams) {
+			u.Inventory = inventoryv1.NewInventoryServiceClient(c)
+		}},
+		{"cart", cfg.CartAddr, func(c *grpc.ClientConn, u *transport.Upstreams) { u.Cart = cartv1.NewCartServiceClient(c) }},
+		{"discount", cfg.DiscountAddr, func(c *grpc.ClientConn, u *transport.Upstreams) { u.Discount = discountv1.NewDiscountServiceClient(c) }},
+		{"order", cfg.OrderAddr, func(c *grpc.ClientConn, u *transport.Upstreams) { u.Order = orderv1.NewOrderServiceClient(c) }},
+		{"notification", cfg.NotificationAddr, func(c *grpc.ClientConn, u *transport.Upstreams) {
+			u.Notification = notificationv1.NewNotificationServiceClient(c)
+		}},
+	}
+	var conns []*grpc.ClientConn
+	closeAll := func() {
+		for _, c := range conns {
+			_ = c.Close()
+		}
+	}
+	var out transport.Upstreams
+	for _, u := range list {
+		conn, err := grpcx.Dial(grpcx.ClientConfig{Target: u.addr, Name: u.name, Timeout: cfg.GRPCTimeout, Breakers: breakers, Metrics: m})
+		if err != nil {
+			closeAll()
+			return transport.Upstreams{}, nil, err
+		}
+		conns = append(conns, conn)
+		u.bind(conn, &out)
+	}
+	return out, closeAll, nil
 }

@@ -94,9 +94,9 @@ SKU cache: Redis key `sku:<skuId>`, TTL 30 s, `null` cached too (cache-penetrati
 
 | Collection | Fields |
 |---|---|
-| `notifications` | `_id`, `type` (`ORDER-001`\|`ORDER-002`\|`PROMOTION-001`\|`SHOP-001`), `senderId`, `receiverId` (`*` = broadcast), `content`, `options`, `isRead`, timestamps; index `{receiverId:1, createdAt:-1}` |
-| `templates` | `_id`, `name` (unique), `html`, `status` |
-| `emails` | `_id`, `to`, `subject`, `template`, `status` (`SENT`\|`FAILED`), `attempts`, `lastError`, timestamps |
+| `notifications` | `_id`, `type` (`ORDER-001`\|`ORDER-002`\|`PROMOTION-001`\|`SHOP-001`), `senderId`, `receiverId` (`*` = broadcast), `content`, `options` (a BSON document), `isRead`, `dedupeKey`, `createdAt`; indexes `{receiverId:1, createdAt:-1}` and **unique** `{dedupeKey:1}` (= causing message id + type + receiver, so a redelivered event creates nothing). `SHOP-001` / `PROMOTION-001` are broadcasts; `ORDER-001/002` go to the buyer. Broadcasts have no per-person read state, so they always show as unread |
+| `templates` | `_id`, `name` (unique), `html` with `{{placeholders}}`, `status`, `createdAt`. `email-verification` and `welcome` are created at boot and by `TemplateSeeder` when missing; an administrator's edits are never overwritten |
+| `emails` | `_id`, `dedupeKey` (**unique**: causing message id + template), `to`, `subject`, `template`, `status` (`PENDING`\|`SENT`\|`FAILED`), `attempts`, `lastError`, timestamps. The record is written *before* the SMTP call |
 
 ## 9. Outbox / inbox (every service)
 

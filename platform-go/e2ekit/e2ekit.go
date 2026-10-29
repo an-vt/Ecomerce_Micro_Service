@@ -271,3 +271,55 @@ func Replies(t testing.TB, orderID string, wait time.Duration) []event.Envelope 
 	}
 	return out
 }
+
+// Mail is a message caught by Mailpit.
+type Mail struct {
+	ID      string
+	Subject string
+	To      []string
+	HTML    string
+}
+
+// WaitForMail polls Mailpit (MAILPIT_URL, default http://127.0.0.1:8025) until a message to the address arrives, for at
+// most 30 s, and returns it with its HTML body.
+func WaitForMail(t testing.TB, to string) Mail {
+	t.Helper()
+	base := Env("MAILPIT_URL", "http://127.0.0.1:8025")
+	httpc := &http.Client{Timeout: 5 * time.Second}
+	get := func(path string, into any) error {
+		resp, err := httpc.Get(base + path)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("%s: %s", path, resp.Status)
+		}
+		return json.NewDecoder(resp.Body).Decode(into)
+	}
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		var found struct {
+			Messages []struct {
+				ID      string
+				Subject string
+				To      []struct{ Address string }
+			}
+		}
+		if err := get("/api/v1/search?query="+url.QueryEscape("to:"+to), &found); err == nil && len(found.Messages) > 0 {
+			m := found.Messages[0]
+			var full struct{ HTML string }
+			if err := get("/api/v1/message/"+m.ID, &full); err != nil {
+				t.Fatalf("read mail %s: %v", m.ID, err)
+			}
+			out := Mail{ID: m.ID, Subject: m.Subject, HTML: full.HTML}
+			for _, a := range m.To {
+				out.To = append(out.To, a.Address)
+			}
+			return out
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+	t.Fatalf("no mail to %s in Mailpit within 30 s (is it running at %s?)", to, base)
+	return Mail{}
+}

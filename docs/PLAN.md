@@ -132,7 +132,7 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 - [x] **P4.1 Bootstrap** — Gin engine, recovery, request id, access log, CORS, security headers, body limit, cookie handling, OpenAPI file served at `/docs`, error → envelope, ops endpoints.
 - [x] **P4.2 Middleware** — `APIKey` (Redis-cached), `JWT` (JWKS cache, `kid` refresh, denylist), `RBAC` (`Rbac("readAny","profile")`), `ShopOnly` / `UserOnly`, rate limit.
 - [x] **P4.3 gRPC clients** — one client per upstream through the breaker interceptor; principal metadata injection; breaker open → 503 + `Retry-After`.
-- [ ] **P4.4 Handlers** *(auth / rbac / profile / catalog / comment / inventory / cart / discount / orders done; discount, orders, notification come with their phases)* — auth (shop / user / rbac / profile) in this phase; catalog, inventory, cart, discount, checkout / orders, notification added in P5–P11.
+- [x] **P4.4 Handlers** — auth (shop / user / rbac / profile) in this phase; catalog, inventory, cart, discount, checkout / orders and notification were added in P5–P11. Every registered route is documented in `api/openapi/openapi.yaml` (a test enforces it).
 - [x] **P4.5 Infra** — `api-gateway/infra/local`.
 
 ### Acceptance (integration, stub gRPC servers)
@@ -252,9 +252,9 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 
 ## P11 — notification-service
 
-- [ ] **P11.1 Domain / use cases** — `Notification`, `Template` (renderer replaces **all** placeholders), `SendEmail` (retry on SMTP failure), `ListNotifications`, `CreateTemplate`.
-- [ ] **P11.2 Consumers** — `auth.email-verification.requested` → email; `catalog.product.created` → `SHOP-001`; `discount.discount.created` → `PROMOTION-001`; `order.order.confirmed|cancelled` → `ORDER-001|002`.
-- [ ] **P11.3 Persistence / transport** — Mongo repositories, migrations + `TemplateSeeder`, SMTP sender (Mailpit), `proto/notification/v1`, gateway routes.
+- [x] **P11.1 Domain / use cases** — `Notification`, `Template` (renderer replaces **all** placeholders), `SendEmail` (retry on SMTP failure), `ListNotifications`, `CreateTemplate`.
+- [x] **P11.2 Consumers** — `auth.email-verification.requested` → email; `catalog.product.created` → `SHOP-001`; `discount.discount.created` → `PROMOTION-001`; `order.order.confirmed|cancelled` → `ORDER-001|002`.
+- [x] **P11.3 Persistence / transport** — Mongo repositories, migrations + `TemplateSeeder`, SMTP sender (Mailpit), `proto/notification/v1`, gateway routes.
 
 | # | Acceptance | Expectation |
 |---|---|---|

@@ -107,4 +107,4 @@ Why not a separate retry topic (like the monolith's `x-retry-count` re-queue)? K
 | `discount-service` | `discount.commands` |
 | `order-service` | `order.saga.replies` |
 | `payment-service` | `payment.commands` |
-| `notification-service` | `auth.user.registered`, `auth.email-verification.requested`, `catalog.product.created`, `discount.discount.created`, `order.order.confirmed`, `order.order.cancelled` |
+| `notification-service` | `auth.user.registered`, `auth.email-verification.requested`, `catalog.product.created`, `discount.discount.created`, `order.order.confirmed`, `order.order.cancelled` (no inbox: every handler is idempotent by a unique key on the message that caused it, see [D-021](12-decisions.md)) |

@@ -19,18 +19,20 @@ import (
 	catalogv1 "github.com/an-vt/ecom/proto/gen/go/catalog/v1"
 	discountv1 "github.com/an-vt/ecom/proto/gen/go/discount/v1"
 	inventoryv1 "github.com/an-vt/ecom/proto/gen/go/inventory/v1"
+	notificationv1 "github.com/an-vt/ecom/proto/gen/go/notification/v1"
 	orderv1 "github.com/an-vt/ecom/proto/gen/go/order/v1"
 )
 
 // Upstreams are the gRPC clients of the services behind the gateway (added phase by phase).
 type Upstreams struct {
-	Auth      authv1.AuthServiceClient
-	Rbac      authv1.RbacServiceClient
-	Catalog   catalogv1.CatalogServiceClient
-	Inventory inventoryv1.InventoryServiceClient
-	Cart      cartv1.CartServiceClient
-	Discount  discountv1.DiscountServiceClient
-	Order     orderv1.OrderServiceClient
+	Auth         authv1.AuthServiceClient
+	Rbac         authv1.RbacServiceClient
+	Catalog      catalogv1.CatalogServiceClient
+	Inventory    inventoryv1.InventoryServiceClient
+	Cart         cartv1.CartServiceClient
+	Discount     discountv1.DiscountServiceClient
+	Order        orderv1.OrderServiceClient
+	Notification notificationv1.NotificationServiceClient
 }
 
 // Options is everything NewRouter needs.
@@ -165,5 +167,9 @@ func NewRouter(o Options) *gin.Engine {
 	od.POST("", ord.place)
 	od.GET("", ord.list)
 	od.GET("/:orderId", ord.get)
+
+	nf := &Notification{client: o.Notification}
+	v1.GET("/notification", authed, nf.list)
+	v1.POST("/email/new_template", authed, requirePermission(o.Grants, "create", "template", rbac.Any), nf.createTemplate)
 	return r
 }

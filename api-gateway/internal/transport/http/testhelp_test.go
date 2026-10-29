@@ -38,6 +38,7 @@ import (
 	catalogv1 "github.com/an-vt/ecom/proto/gen/go/catalog/v1"
 	discountv1 "github.com/an-vt/ecom/proto/gen/go/discount/v1"
 	inventoryv1 "github.com/an-vt/ecom/proto/gen/go/inventory/v1"
+	notificationv1 "github.com/an-vt/ecom/proto/gen/go/notification/v1"
 	orderv1 "github.com/an-vt/ecom/proto/gen/go/order/v1"
 )
 
@@ -461,6 +462,40 @@ func (s *orderStub) ListOrders(ctx context.Context, in *orderv1.ListOrdersReques
 	return &orderv1.ListOrdersResponse{Total: 1, Orders: []*orderv1.Order{{Id: "o1", Status: "CONFIRMED"}}}, nil
 }
 
+type notificationStub struct {
+	notificationv1.UnimplementedNotificationServiceServer
+	mu        sync.Mutex
+	last      metadata.MD
+	listReq   *notificationv1.ListNotificationsRequest
+	createReq *notificationv1.CreateTemplateRequest
+	fail      error
+}
+
+func (s *notificationStub) enter(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.last, _ = metadata.FromIncomingContext(ctx)
+	return grpcx.ToStatus(s.fail)
+}
+
+func (s *notificationStub) ListNotifications(ctx context.Context, in *notificationv1.ListNotificationsRequest) (*notificationv1.ListNotificationsResponse, error) {
+	if err := s.enter(ctx); err != nil {
+		return nil, err
+	}
+	s.listReq = in
+	return &notificationv1.ListNotificationsResponse{Total: 2, Notifications: []*notificationv1.Notification{
+		{Id: "n1", Type: "ORDER-001", SenderId: "order-service", ReceiverId: "u1", Content: "Your order o1 was confirmed", OptionsJson: `{"orderId":"o1","total":5000}`, CreatedAt: "2026-10-30T12:00:00Z"},
+		{Id: "n2", Type: "SHOP-001", ReceiverId: "*", Content: "A shop just added a new product: Shirt"}}}, nil
+}
+
+func (s *notificationStub) CreateTemplate(ctx context.Context, in *notificationv1.CreateTemplateRequest) (*notificationv1.Template, error) {
+	if err := s.enter(ctx); err != nil {
+		return nil, err
+	}
+	s.createReq = in
+	return &notificationv1.Template{Id: "t1", Name: in.GetName(), Html: in.GetHtml(), Status: "active", CreatedAt: "2026-10-30T12:00:00Z"}, nil
+}
+
 type rbacStub struct {
 	authv1.UnimplementedRbacServiceServer
 	grants     func() ([]*authv1.RoleGrant, error)
@@ -506,21 +541,22 @@ func signerKey() *rsa.PrivateKey {
 }
 
 type gw struct {
-	t         *testing.T
-	engine    *gin.Engine
-	auth      *authStub
-	rbac      *rbacStub
-	catalog   *catalogStub
-	inventory *inventoryStub
-	cart      *cartStub
-	discount  *discountStub
-	order     *orderStub
-	mr        *miniredis.Miniredis
-	signer    *jwtx.Signer
-	clk       *clock.Fixed
-	metrics   *metrics.Metrics
-	breaker   *breaker.Registry
-	stop      func()
+	t            *testing.T
+	engine       *gin.Engine
+	auth         *authStub
+	rbac         *rbacStub
+	catalog      *catalogStub
+	inventory    *inventoryStub
+	cart         *cartStub
+	discount     *discountStub
+	order        *orderStub
+	notification *notificationStub
+	mr           *miniredis.Miniredis
+	signer       *jwtx.Signer
+	clk          *clock.Fixed
+	metrics      *metrics.Metrics
+	breaker      *breaker.Registry
+	stop         func()
 }
 
 type gwOpts struct {
@@ -538,7 +574,7 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	for _, m := range mut {
 		m(&o)
 	}
-	g := &gw{t: t, auth: &authStub{}, rbac: &rbacStub{}, catalog: &catalogStub{}, inventory: &inventoryStub{}, cart: &cartStub{}, discount: &discountStub{}, order: &orderStub{}, clk: clock.NewFixed(time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)), metrics: metrics.New()}
+	g := &gw{t: t, auth: &authStub{}, rbac: &rbacStub{}, catalog: &catalogStub{}, inventory: &inventoryStub{}, cart: &cartStub{}, discount: &discountStub{}, order: &orderStub{}, notification: &notificationStub{}, clk: clock.NewFixed(time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)), metrics: metrics.New()}
 
 	lis := bufconn.Listen(1 << 20)
 	srv := grpc.NewServer()
@@ -549,6 +585,7 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	cartv1.RegisterCartServiceServer(srv, g.cart)
 	discountv1.RegisterDiscountServiceServer(srv, g.discount)
 	orderv1.RegisterOrderServiceServer(srv, g.order)
+	notificationv1.RegisterNotificationServiceServer(srv, g.notification)
 	go func() { _ = srv.Serve(lis) }()
 	g.stop = srv.Stop
 	t.Cleanup(srv.Stop)
@@ -565,6 +602,7 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	cartClient := cartv1.NewCartServiceClient(conn)
 	discountClient := discountv1.NewDiscountServiceClient(conn)
 	orderClient := orderv1.NewOrderServiceClient(conn)
+	notificationClient := notificationv1.NewNotificationServiceClient(conn)
 
 	g.mr = miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: g.mr.Addr(), ReadTimeout: 300 * time.Millisecond, DialTimeout: 300 * time.Millisecond,
@@ -593,11 +631,12 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 			{Role: "shop", Resource: "profile", Actions: []string{"readOwn"}},
 			{Role: "admin", Resource: "profile", Actions: []string{"readAny", "readOwn"}},
 			{Role: "admin", Resource: "rbac", Actions: []string{"createAny", "readAny"}},
+			{Role: "admin", Resource: "template", Actions: []string{"createAny"}},
 		}, nil
 	}
 
 	g.engine = transport.NewRouter(transport.Options{
-		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient, Catalog: catalogClient, Inventory: inventoryClient, Cart: cartClient, Discount: discountClient, Order: orderClient},
+		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient, Catalog: catalogClient, Inventory: inventoryClient, Cart: cartClient, Discount: discountClient, Order: orderClient, Notification: notificationClient},
 		Verifier:  verifier, Denylist: redisx.NewDenylist(rdb, "auth:revoked:"), Limiter: redisx.NewLimiter(rdb, "rl:"),
 		APICache: redisx.NewCache(rdb, "apikey:"), Grants: grants, Metrics: g.metrics, IDs: nil,
 		CORSOrigins: o.corsOrigins, CookieSecure: false, CookieTTL: 7 * 24 * time.Hour,

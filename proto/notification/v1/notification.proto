@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package ecom.notification.v1;
+
+// In-app notifications and email templates (docs/05-api-design.md §2). Emails and notifications are created by
+// consuming Kafka events; only reading notifications and managing templates are synchronous.
+service NotificationService {
+  // The caller's notifications plus the broadcasts, newest first.
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+  // Adds an email template. Placeholders are written {{name}}.
+  rpc CreateTemplate(CreateTemplateRequest) returns (Template);
+}
+
+message Notification {
+  string id = 1;
+  string type = 2; // ORDER-001 | ORDER-002 | PROMOTION-001 | SHOP-001
+  string sender_id = 3;
+  string receiver_id = 4; // "*" for a broadcast
+  string content = 5;
+  string options_json = 6;
+  bool is_read = 7;
+  string created_at = 8;
+}
+
+message ListNotificationsRequest {
+  string type = 1; // empty or ALL: every type
+  optional bool is_read = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message ListNotificationsResponse {
+  repeated Notification notifications = 1;
+  int64 total = 2;
+}
+
+message CreateTemplateRequest {
+  string name = 1;
+  string html = 2;
+}
+
+message Template {
+  string id = 1;
+  string name = 2;
+  string html = 3;
+  string status = 4;
+  string created_at = 5;
+}
