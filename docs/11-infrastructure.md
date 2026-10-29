@@ -54,7 +54,7 @@ Healthcheck in compose: `["CMD", "/app", "-healthcheck"]`.
 | Var | Example | Meaning |
 |---|---|---|
 | `SERVICE_NAME` | `order-service` | logs, metrics, traces |
-| `HTTP_PORT` | `8106` | ops port (gateway: public REST port 3000) |
+| `HTTP_PORT` | `8106` | ops port (gateway: public REST port 8088) |
 | `GRPC_PORT` | `9106` | gRPC bind (not for gateway) |
 | `LOG_LEVEL` | `info` | slog level |
 | `KAFKA_BROKERS` | `ecom-kafka:9092` | |
@@ -67,13 +67,13 @@ Healthcheck in compose: `["CMD", "/app", "-healthcheck"]`.
 
 | Service | Vars |
 |---|---|
-| api-gateway | `AUTH_GRPC_URL=ecom-auth:9101`, `CATALOG_GRPC_URL`, `INVENTORY_GRPC_URL`, `CART_GRPC_URL`, `DISCOUNT_GRPC_URL`, `ORDER_GRPC_URL`, `NOTIFICATION_GRPC_URL`, `CORS_ORIGINS`, `RATE_LIMIT_PER_MIN`, `COOKIE_SECURE` |
-| auth-service | `DATABASE_URL=postgres://auth:auth@ecom-postgres:5432/auth_db`, `AUTH_JWT_PRIVATE_KEY_FILE`, `AUTH_JWT_PUBLIC_KEY_FILE`, `ACCESS_TOKEN_TTL_SEC=900`, `REFRESH_TOKEN_TTL_SEC=604800`, `OTP_TTL_SEC=300`, `VERIFY_LINK_BASE=http://localhost:3000/v1/api/user/welcome_back`, `SEED_API_KEY`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` |
+| api-gateway | `AUTH_GRPC_ADDR=ecom-auth:9101`, `CATALOG_GRPC_ADDR`, `INVENTORY_GRPC_ADDR`, `CART_GRPC_ADDR`, `DISCOUNT_GRPC_ADDR`, `ORDER_GRPC_ADDR`, `NOTIFICATION_GRPC_ADDR`, `CORS_ORIGINS`, `RATE_LIMIT_PER_MIN`, `COOKIE_SECURE` |
+| auth-service | `DATABASE_URL=postgres://auth:auth@ecom-postgres:5432/auth_db`, `AUTH_JWT_PRIVATE_KEY_FILE`, `AUTH_JWT_PUBLIC_KEY_FILE`, `ACCESS_TOKEN_TTL_SEC=900`, `REFRESH_TOKEN_TTL_SEC=604800`, `OTP_TTL_SEC=300`, `VERIFY_LINK_BASE=http://localhost:8088/v1/api/user/welcome_back`, `SEED_API_KEY`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` |
 | catalog-service | `MONGO_URI=mongodb://catalog:catalog@ecom-mongo:27017/catalog_db?replicaSet=rs0&authSource=catalog_db`, `SKU_CACHE_TTL_SEC=30` |
-| inventory-service | `DATABASE_URL=…/inventory_db`, `CATALOG_GRPC_URL`, `RESERVATION_TTL_MS=900000` |
-| cart-service | `MONGO_URI=…/cart_db…`, `CATALOG_GRPC_URL`, `INVENTORY_GRPC_URL` |
-| discount-service | `DATABASE_URL=…/discount_db`, `CATALOG_GRPC_URL` |
-| order-service | `DATABASE_URL=…/order_db`, `CATALOG_GRPC_URL`, `CART_GRPC_URL`, `DISCOUNT_GRPC_URL`, `SAGA_STEP_TIMEOUT_MS`, `SAGA_SWEEP_INTERVAL_MS` |
+| inventory-service | `DATABASE_URL=…/inventory_db`, `CATALOG_GRPC_ADDR`, `RESERVATION_TTL_MS=900000` |
+| cart-service | `MONGO_URI=…/cart_db…`, `CATALOG_GRPC_ADDR`, `INVENTORY_GRPC_ADDR` |
+| discount-service | `DATABASE_URL=…/discount_db`, `CATALOG_GRPC_ADDR` |
+| order-service | `DATABASE_URL=…/order_db`, `CATALOG_GRPC_ADDR`, `CART_GRPC_ADDR`, `DISCOUNT_GRPC_ADDR`, `SAGA_STEP_TIMEOUT_MS`, `SAGA_SWEEP_INTERVAL_MS` |
 | payment-service | `DATABASE_URL=…/payment_db`, `PAYMENT_PROVIDER_TIMEOUT_MS=3000`, `PAYMENT_CURRENCY=VND` |
 | notification-service | `MONGO_URI=…/notification_db…`, `SMTP_HOST=ecom-mailpit`, `SMTP_PORT=1025`, `MAIL_FROM` |
 
@@ -95,7 +95,7 @@ Secrets accept `<VAR>_FILE`.
 
 | What | URL |
 |---|---|
-| REST API / OpenAPI | http://localhost:3000/v1/api · http://localhost:3000/docs |
+| REST API / OpenAPI | http://localhost:8088/v1/api · http://localhost:8088/docs |
 | Grafana | http://localhost:3001 (admin / admin) |
 | Prometheus | http://localhost:9090 |
 | Kafka UI | http://localhost:8080 |

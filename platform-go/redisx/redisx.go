@@ -25,6 +25,9 @@ func Open(ctx context.Context, c Config) (*redis.Client, error) {
 	cl := redis.NewClient(&redis.Options{
 		Addr: c.Addr, Password: c.Password, DB: c.DB,
 		DialTimeout: 2 * time.Second, ReadTimeout: 500 * time.Millisecond, WriteTimeout: 500 * time.Millisecond,
+		// go-redis redials 5 times by default, which would stall every request for seconds when Redis is down;
+		// callers (rate limiter, caches) already degrade gracefully, so fail after one quick retry.
+		DialerRetries: 1, DialerRetryTimeout: 50 * time.Millisecond, PoolTimeout: 500 * time.Millisecond, MaxRetries: 1,
 	})
 	if err := redisotel.InstrumentTracing(cl); err != nil {
 		_ = cl.Close()

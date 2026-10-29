@@ -65,7 +65,7 @@ Requires Docker. The Ryuk reaper removes containers when the test binary exits.
 
 ## 3. End-to-end tests
 
-Module `e2e/` (std `testing` + `net/http`, helpers in `platform-go/e2ekit`). Precondition: `make start`. With `E2E_REQUIRED=1` a missing stack fails the test instead of skipping it. The suite talks only to `http://localhost:3000`, plus the Mailpit API (to read the verification link), the Prometheus / Tempo HTTP APIs, and the Docker CLI (for the breaker scenario).
+Module `e2e/` (std `testing` + `net/http`, helpers in `platform-go/e2ekit`). Precondition: `make start`. With `E2E_REQUIRED=1` a missing stack fails the test instead of skipping it. The suite talks only to `http://localhost:8088`, plus the Mailpit API (to read the verification link), the Prometheus / Tempo HTTP APIs, and the Docker CLI (for the breaker scenario).
 
 | # | Scenario | Expectation |
 |---|---|---|

@@ -19,7 +19,7 @@ container_of() {
 # service dir -> ops/health port
 port_of() {
   case "$1" in
-    api-gateway) echo 3000 ;;
+    api-gateway) echo 8088 ;;
     auth-service) echo 8101 ;;
     catalog-service) echo 8102 ;;
     inventory-service) echo 8103 ;;

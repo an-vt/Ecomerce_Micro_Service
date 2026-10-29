@@ -47,7 +47,7 @@ func Load(l *platform.Loader) (Config, error) {
 		AccessTTL:         time.Duration(l.Int("ACCESS_TOKEN_TTL_SEC", 900)) * time.Second,
 		RefreshTTL:        time.Duration(l.Int("REFRESH_TOKEN_TTL_SEC", 604800)) * time.Second,
 		OTPTTL:            time.Duration(l.Int("OTP_TTL_SEC", 300)) * time.Second,
-		VerifyLinkBase:    l.String("VERIFY_LINK_BASE", "http://localhost:3000/v1/api/user/welcome_back"),
+		VerifyLinkBase:    l.String("VERIFY_LINK_BASE", "http://localhost:8088/v1/api/user/welcome_back"),
 		BcryptCost:        l.Int("BCRYPT_COST", 10),
 		AutoMigrate:       l.Bool("AUTO_MIGRATE", true),
 		SeedAPIKey:        l.String("SEED_API_KEY", ""),

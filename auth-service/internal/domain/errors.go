@@ -8,7 +8,7 @@ import "github.com/an-vt/ecom/platform-go/errs"
 // status; the code is what clients and tests match on.
 const (
 	CodeEmailTaken         = "EMAIL_TAKEN"
-	CodeInvalidCredentials = "INVALID_CREDENTIALS" //nolint:gosec // an error code name, not a credential
+	CodeInvalidCredentials = "INVALID_CREDENTIALS"
 	CodeAccountInactive    = "ACCOUNT_INACTIVE"
 	CodePasswordNotSet     = "PASSWORD_NOT_SET"
 	CodeTokenInvalid       = "TOKEN_INVALID"

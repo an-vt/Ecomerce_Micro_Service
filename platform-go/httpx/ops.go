@@ -67,7 +67,9 @@ func Serve(ctx context.Context, addr string, handler http.Handler, log *slog.Log
 
 // ServeListener is Serve on an existing listener (used by tests with port 0).
 func ServeListener(ctx context.Context, ln net.Listener, handler http.Handler, log *slog.Logger) error {
-	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second}
+	// Timeouts bound slow clients (docs/09 §3: 15 s per request at the edge).
+	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,
+		WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.Serve(ln) }()
 	log.Info("http server listening", "addr", ln.Addr().String())

@@ -1,0 +1,112 @@
+package http
+
+import (
+	stdhttp "net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/an-vt/ecom/api-gateway/api/openapi"
+	"github.com/an-vt/ecom/platform-go/errs"
+	"github.com/an-vt/ecom/platform-go/httpx"
+	"github.com/an-vt/ecom/platform-go/idgen"
+	"github.com/an-vt/ecom/platform-go/jwtx"
+	"github.com/an-vt/ecom/platform-go/metrics"
+	"github.com/an-vt/ecom/platform-go/rbac"
+	"github.com/an-vt/ecom/platform-go/redisx"
+	authv1 "github.com/an-vt/ecom/proto/gen/go/auth/v1"
+)
+
+// Upstreams are the gRPC clients of the services behind the gateway (added phase by phase).
+type Upstreams struct {
+	Auth authv1.AuthServiceClient
+	Rbac authv1.RbacServiceClient
+}
+
+// Options is everything NewRouter needs.
+type Options struct {
+	Upstreams
+
+	Verifier *jwtx.Verifier
+	Denylist *redisx.Denylist
+	Limiter  *redisx.Limiter
+	APICache *redisx.Cache
+	Grants   *GrantsCache
+	Metrics  *metrics.Metrics
+	Checks   map[string]httpx.Check
+	IDs      idgen.Generator
+
+	CORSOrigins    []string
+	TrustedProxies []string
+	CookieSecure   bool
+	CookieTTL      time.Duration
+	RateLimit      int
+	AuthRateLimit  int
+	BodyLimit      int64
+	APIKeyTTL      time.Duration
+	APIKeyNegTTL   time.Duration
+}
+
+// PublicPermission is the API-key permission every public route requires.
+const PublicPermission = "0000"
+
+// NewRouter builds the Gin engine with the full middleware chain and every route.
+func NewRouter(o Options) *gin.Engine {
+	gin.SetMode(gin.ReleaseMode)
+	gin.EnableJsonDecoderDisallowUnknownFields()
+	if o.IDs == nil {
+		o.IDs = idgen.ULID{}
+	}
+	r := gin.New()
+	r.HandleMethodNotAllowed = true
+	_ = r.SetTrustedProxies(o.TrustedProxies) // nil: trust no proxy, the client IP is the socket peer
+
+	r.Use(requestID(o.IDs), recoverer(), accessLog(), httpMetrics(o.Metrics.Registry), securityHeaders(o.CookieSecure),
+		cors(o.CORSOrigins), bodyLimit(o.BodyLimit))
+	r.NoRoute(func(c *gin.Context) { fail(c, errs.NotFound("ROUTE_NOT_FOUND", "no such route")) })
+	r.NoMethod(func(c *gin.Context) {
+		fail(c, errs.New(errs.KindInvalidArgument, "METHOD_NOT_ALLOWED", "method not allowed"))
+	})
+
+	// operational and documentation routes: no API key
+	ops := httpx.NewOpsHandler(o.Metrics.Handler(), o.Checks)
+	r.GET("/health/live", gin.WrapH(ops))
+	r.GET("/health/ready", gin.WrapH(ops))
+	r.GET("/metrics", gin.WrapH(ops))
+	r.GET("/docs", docsPage)
+	r.GET("/docs/openapi.yaml", func(c *gin.Context) { c.Data(stdhttp.StatusOK, "application/yaml", openapi.Spec) })
+
+	window := time.Minute
+	v1 := r.Group("/v1/api",
+		apiKey(o.Auth, o.APICache, o.APIKeyTTL, o.APIKeyNegTTL, PublicPermission),
+		rateLimit(o.Limiter, "all", o.RateLimit, window))
+	strict := rateLimit(o.Limiter, "auth", o.AuthRateLimit, window)
+	authed := jwtAuth(o.Verifier, o.Denylist)
+
+	auth := &Auth{client: o.Auth, cookieSecure: o.CookieSecure, cookieTTL: o.CookieTTL}
+	shop := v1.Group("/shop")
+	shop.POST("/signup", strict, auth.signUpShop)
+	shop.POST("/login", strict, auth.login(authv1.AccountType_ACCOUNT_TYPE_SHOP))
+	shop.POST("/logout", authed, auth.logout)
+	shop.POST("/handleRefreshToken", auth.refresh)
+
+	user := v1.Group("/user")
+	user.POST("/new_user", strict, auth.newUser)
+	user.GET("/welcome_back", strict, auth.welcomeBack)
+	user.POST("/password", authed, userOnly(), auth.setPassword)
+	user.POST("/login", strict, auth.login(authv1.AccountType_ACCOUNT_TYPE_USER))
+	user.POST("/logout", authed, auth.logout)
+	user.POST("/handleRefreshToken", auth.refresh)
+
+	admin := &Rbac{client: o.Rbac}
+	rb := v1.Group("/rbac", authed)
+	rb.POST("/role", requirePermission(o.Grants, "create", "rbac", rbac.Any), admin.createRole)
+	rb.GET("/roles", requirePermission(o.Grants, "read", "rbac", rbac.Any), admin.listRoles)
+	rb.POST("/resource", requirePermission(o.Grants, "create", "rbac", rbac.Any), admin.createResource)
+	rb.GET("/resources", requirePermission(o.Grants, "read", "rbac", rbac.Any), admin.listResources)
+
+	pf := v1.Group("/profile", authed)
+	pf.GET("/viewAny", requirePermission(o.Grants, "read", "profile", rbac.Any), auth.viewProfile)
+	pf.GET("/viewOwn", requirePermission(o.Grants, "read", "profile", rbac.Own), auth.viewProfile)
+	return r
+}

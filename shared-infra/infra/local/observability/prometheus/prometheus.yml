@@ -11,7 +11,7 @@ scrape_configs:
   - job_name: ecom-services
     metrics_path: /metrics
     static_configs:
-      - targets: ["ecom-gateway:3000"]
+      - targets: ["ecom-gateway:8088"]
         labels: { service: api-gateway }
       - targets: ["ecom-auth:8101"]
         labels: { service: auth-service }

@@ -8,7 +8,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 THRESHOLD="${COVER_THRESHOLD:-80}"
 TAGS=""
 [ "${COVER_INTEGRATION:-0}" = "1" ] && TAGS="-tags=integration"
-EXCLUDE='/cmd/|/internal/app/|/internal/database/(migrations|seeders)/|/internal/testenv/|/fake/|/repotest/|/gen/|\.pb\.go|/doc\.go'
+EXCLUDE='/cmd/|/internal/app/|/internal/database/(migrations|seeders)/|/internal/testenv/|/fake/|/repotest/|/e2ekit/|/testkit/|/gen/|\.pb\.go|/doc\.go'
 
 # percent of statements for the packages whose path matches $1 (extended regex), from profile $2
 pct_of() {

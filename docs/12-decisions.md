@@ -86,3 +86,8 @@ Format: context → decision → consequences. All **Accepted** (2026-10-29) unl
 - **Context:** On macOS, `launchd` holds a socket on `127.0.0.1:50051` (Apple's `gamepolicyd`), so a container publishing 50051 is shadowed on loopback: connects succeed but reach macOS, not the service. 50051–50058 also sit in the OS ephemeral port range.
 - **Decision:** gRPC ports are 9101 (auth) … 9108 (notification), pairing with the ops HTTP ports 8101–8108.
 - **Consequences:** Works on developer laptops and CI alike; the "50051" gRPC convention is not used anywhere in this repo.
+
+### D-018 Public gateway port 8088 (not 3000)
+- **Context:** Port 3000 is the default of most JavaScript dev servers (Next.js, Remotion Studio, CRA…). On a developer machine it is usually taken, and a published container port is then silently shadowed on loopback: requests reach the other process (found while testing: `/health/ready` answered with a Remotion Studio page).
+- **Decision:** the gateway listens on 8088 (container and host). Grafana keeps 3001 for the same reason.
+- **Consequences:** no clash with common tooling; `VERIFY_LINK_BASE`, OpenAPI `servers`, scripts and docs use 8088.

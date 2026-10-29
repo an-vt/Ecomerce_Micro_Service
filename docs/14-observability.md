@@ -23,7 +23,7 @@ Go `log/slog` JSON handler (`platform-go/logger`), to stdout:
 
 ## 2. Metrics
 
-Each service exposes `GET /metrics` on its ops port (gateway on 3000). Default Node metrics (`process_*`, `nodejs_*`) plus:
+Each service exposes `GET /metrics` on its ops port (gateway on 8088). Default Node metrics (`process_*`, `nodejs_*`) plus:
 
 | Metric | Type | Labels | From |
 |---|---|---|---|

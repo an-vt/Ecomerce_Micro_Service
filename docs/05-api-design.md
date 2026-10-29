@@ -1,6 +1,6 @@
 # 05 — API design
 
-## 1. External REST API (api-gateway, port 3000)
+## 1. External REST API (api-gateway, port 8088)
 
 Base path `/v1/api` (same as the monolith), served by **Gin**. OpenAPI spec at `api-gateway/api/openapi/openapi.yaml`, served at `/docs`.
 

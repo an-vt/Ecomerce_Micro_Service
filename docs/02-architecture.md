@@ -4,7 +4,7 @@
 
 | # | Service | Port (REST or gRPC / HTTP ops) | Store | Responsibility |
 |---|---|---|---|---|
-| 1 | **api-gateway** | 3000 (REST) | Redis | The only public entry (Gin). API-key check, JWT (RS256) verify, session-revocation check, RBAC, rate limit, request id, REST → gRPC translation, one circuit breaker per upstream, Swagger. |
+| 1 | **api-gateway** | 8088 (REST) | Redis | The only public entry (Gin). API-key check, JWT (RS256) verify, session-revocation check, RBAC, rate limit, request id, REST → gRPC translation, one circuit breaker per upstream, Swagger. |
 | 2 | **auth-service** | 9101 / 8101 | PostgreSQL `auth_db` | Shops, users, sessions (refresh rotation + reuse detection), API keys (hashed), roles / resources / grants, OTP, JWKS. |
 | 3 | **catalog-service** | 9102 / 8102 | MongoDB `catalog_db`, Redis | Typed products (strategy factory), SPU / SKU, search, publish, SKU cache, shop projection, comments (nested set). |
 | 4 | **inventory-service** | 9103 / 8103 | PostgreSQL `inventory_db` | Stock per product, reservations per order (reserve / release / commit), reservation expiry. |

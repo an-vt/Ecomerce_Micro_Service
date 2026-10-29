@@ -1,0 +1,370 @@
+package http_test
+
+import (
+	"bytes"
+	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/json"
+	"io"
+	"net"
+	stdhttp "net/http"
+	"net/http/httptest"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/alicebob/miniredis/v2"
+	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/types/known/emptypb"
+
+	transport "github.com/an-vt/ecom/api-gateway/internal/transport/http"
+	"github.com/an-vt/ecom/platform-go/breaker"
+	"github.com/an-vt/ecom/platform-go/clock"
+	"github.com/an-vt/ecom/platform-go/errs"
+	"github.com/an-vt/ecom/platform-go/grpcx"
+	"github.com/an-vt/ecom/platform-go/jwtx"
+	"github.com/an-vt/ecom/platform-go/metrics"
+	"github.com/an-vt/ecom/platform-go/rbac"
+	"github.com/an-vt/ecom/platform-go/redisx"
+	authv1 "github.com/an-vt/ecom/proto/gen/go/auth/v1"
+)
+
+// ---- stub auth / rbac services (real gRPC servers over an in-memory connection) -----------------------------
+
+type authStub struct {
+	authv1.UnimplementedAuthServiceServer
+	mu     sync.Mutex
+	calls  map[string]int
+	lastMD metadata.MD
+
+	validate    func(*authv1.ValidateApiKeyRequest) (*authv1.ValidateApiKeyResponse, error)
+	signUp      func(*authv1.SignUpShopRequest) (*authv1.AuthResponse, error)
+	login       func(*authv1.LoginRequest) (*authv1.AuthResponse, error)
+	refresh     func(*authv1.RefreshRequest) (*authv1.AuthResponse, error)
+	logout      func(*authv1.LogoutRequest) error
+	requestMail func(*authv1.RequestEmailVerificationRequest) error
+	verify      func(*authv1.VerifyEmailRequest) (*authv1.AuthResponse, error)
+	setPassword func(*authv1.SetPasswordRequest) error
+	getAccount  func(*authv1.GetAccountRequest) (*authv1.Account, error)
+}
+
+func (s *authStub) enter(ctx context.Context, name string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.calls == nil {
+		s.calls = map[string]int{}
+	}
+	s.calls[name]++
+	s.lastMD, _ = metadata.FromIncomingContext(ctx)
+}
+
+func (s *authStub) count(name string) int { s.mu.Lock(); defer s.mu.Unlock(); return s.calls[name] }
+func (s *authStub) md(key string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if v := s.lastMD.Get(key); len(v) > 0 {
+		return v[0]
+	}
+	return ""
+}
+
+func (s *authStub) ValidateApiKey(ctx context.Context, in *authv1.ValidateApiKeyRequest) (*authv1.ValidateApiKeyResponse, error) {
+	s.enter(ctx, "ValidateApiKey")
+	if s.validate != nil {
+		r, err := s.validate(in)
+		return r, grpcx.ToStatus(err)
+	}
+	return &authv1.ValidateApiKeyResponse{Valid: in.GetKey() == "good-key", Permissions: []string{"0000"}}, nil
+}
+
+func (s *authStub) SignUpShop(ctx context.Context, in *authv1.SignUpShopRequest) (*authv1.AuthResponse, error) {
+	s.enter(ctx, "SignUpShop")
+	if s.signUp == nil {
+		return authResponse("shop-1", authv1.AccountType_ACCOUNT_TYPE_SHOP), nil
+	}
+	r, err := s.signUp(in)
+	return r, grpcx.ToStatus(err)
+}
+
+func (s *authStub) Login(ctx context.Context, in *authv1.LoginRequest) (*authv1.AuthResponse, error) {
+	s.enter(ctx, "Login")
+	if s.login == nil {
+		return authResponse("acc-1", in.GetType()), nil
+	}
+	r, err := s.login(in)
+	return r, grpcx.ToStatus(err)
+}
+
+func (s *authStub) Refresh(ctx context.Context, in *authv1.RefreshRequest) (*authv1.AuthResponse, error) {
+	s.enter(ctx, "Refresh")
+	if s.refresh == nil {
+		return authResponse("acc-1", authv1.AccountType_ACCOUNT_TYPE_SHOP), nil
+	}
+	r, err := s.refresh(in)
+	return r, grpcx.ToStatus(err)
+}
+
+func (s *authStub) Logout(ctx context.Context, in *authv1.LogoutRequest) (*emptypb.Empty, error) {
+	s.enter(ctx, "Logout")
+	if s.logout != nil {
+		return &emptypb.Empty{}, grpcx.ToStatus(s.logout(in))
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (s *authStub) RequestEmailVerification(ctx context.Context, in *authv1.RequestEmailVerificationRequest) (*emptypb.Empty, error) {
+	s.enter(ctx, "RequestEmailVerification")
+	if s.requestMail != nil {
+		return &emptypb.Empty{}, grpcx.ToStatus(s.requestMail(in))
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (s *authStub) VerifyEmail(ctx context.Context, in *authv1.VerifyEmailRequest) (*authv1.AuthResponse, error) {
+	s.enter(ctx, "VerifyEmail")
+	if s.verify == nil {
+		return authResponse("user-1", authv1.AccountType_ACCOUNT_TYPE_USER), nil
+	}
+	r, err := s.verify(in)
+	return r, grpcx.ToStatus(err)
+}
+
+func (s *authStub) SetPassword(ctx context.Context, in *authv1.SetPasswordRequest) (*emptypb.Empty, error) {
+	s.enter(ctx, "SetPassword")
+	if s.setPassword != nil {
+		return &emptypb.Empty{}, grpcx.ToStatus(s.setPassword(in))
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (s *authStub) GetAccount(ctx context.Context, in *authv1.GetAccountRequest) (*authv1.Account, error) {
+	s.enter(ctx, "GetAccount")
+	if s.getAccount != nil {
+		r, err := s.getAccount(in)
+		return r, grpcx.ToStatus(err)
+	}
+	return &authv1.Account{Id: "acc-1", Email: "a@b.co", Type: authv1.AccountType_ACCOUNT_TYPE_USER}, nil
+}
+
+func authResponse(id string, typ authv1.AccountType) *authv1.AuthResponse {
+	return &authv1.AuthResponse{
+		Account: &authv1.Account{Id: id, Type: typ, Email: "a@b.co", Name: "A", Status: "active", Roles: []string{"shop"}},
+		Tokens:  &authv1.Tokens{AccessToken: "access-" + id, RefreshToken: "refresh-" + id, ExpiresInSeconds: 900, SessionId: "sid-" + id},
+	}
+}
+
+type rbacStub struct {
+	authv1.UnimplementedRbacServiceServer
+	grants     func() ([]*authv1.RoleGrant, error)
+	createRole func(*authv1.CreateRoleRequest) (*authv1.Role, error)
+}
+
+func (s *rbacStub) GetGrants(context.Context, *emptypb.Empty) (*authv1.GetGrantsResponse, error) {
+	if s.grants == nil {
+		return &authv1.GetGrantsResponse{}, nil
+	}
+	g, err := s.grants()
+	return &authv1.GetGrantsResponse{Grants: g}, grpcx.ToStatus(err)
+}
+
+func (s *rbacStub) CreateRole(_ context.Context, in *authv1.CreateRoleRequest) (*authv1.Role, error) {
+	if s.createRole != nil {
+		r, err := s.createRole(in)
+		return r, grpcx.ToStatus(err)
+	}
+	return &authv1.Role{Id: "r1", Name: in.GetName(), Status: "active", Grants: in.GetGrants()}, nil
+}
+
+func (s *rbacStub) ListRoles(context.Context, *emptypb.Empty) (*authv1.ListRolesResponse, error) {
+	return &authv1.ListRolesResponse{Roles: []*authv1.Role{{Id: "r1", Name: "shop"}}}, nil
+}
+
+func (s *rbacStub) CreateResource(_ context.Context, in *authv1.CreateResourceRequest) (*authv1.Resource, error) {
+	return &authv1.Resource{Id: "res1", Name: in.GetName()}, nil
+}
+
+func (s *rbacStub) ListResources(context.Context, *emptypb.Empty) (*authv1.ListResourcesResponse, error) {
+	return &authv1.ListResourcesResponse{Resources: []*authv1.Resource{{Id: "res1", Name: "profile"}}}, nil
+}
+
+// ---- the gateway under test ------------------------------------------------------------------------------------
+
+var testKey *rsa.PrivateKey
+var keyOnce sync.Once
+
+func signerKey() *rsa.PrivateKey {
+	keyOnce.Do(func() { testKey, _ = rsa.GenerateKey(rand.Reader, 2048) })
+	return testKey
+}
+
+type gw struct {
+	t       *testing.T
+	engine  *gin.Engine
+	auth    *authStub
+	rbac    *rbacStub
+	mr      *miniredis.Miniredis
+	signer  *jwtx.Signer
+	clk     *clock.Fixed
+	metrics *metrics.Metrics
+	breaker *breaker.Registry
+	stop    func()
+}
+
+type gwOpts struct {
+	rateLimit, authRateLimit int
+	corsOrigins              []string
+	bodyLimit                int64
+	breakerMin               uint32
+	breakerReset             time.Duration
+	grantsTTL                time.Duration
+}
+
+func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
+	t.Helper()
+	o := gwOpts{rateLimit: 1000, authRateLimit: 1000, bodyLimit: 100 * 1024, breakerMin: 10, breakerReset: 30 * time.Second, grantsTTL: time.Minute}
+	for _, m := range mut {
+		m(&o)
+	}
+	g := &gw{t: t, auth: &authStub{}, rbac: &rbacStub{}, clk: clock.NewFixed(time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)), metrics: metrics.New()}
+
+	lis := bufconn.Listen(1 << 20)
+	srv := grpc.NewServer()
+	authv1.RegisterAuthServiceServer(srv, g.auth)
+	authv1.RegisterRbacServiceServer(srv, g.rbac)
+	go func() { _ = srv.Serve(lis) }()
+	g.stop = srv.Stop
+	t.Cleanup(srv.Stop)
+
+	g.breaker = breaker.NewRegistry(grpcx.BreakerSettings(breaker.Settings{MinRequests: o.breakerMin, ErrorRatio: 0.5, ResetTimeout: o.breakerReset, Observer: g.metrics.BreakerObserver()}))
+	conn, err := grpc.NewClient("passthrough:///bufnet", grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return lis.Dial() }),
+		grpc.WithChainUnaryInterceptor(grpcx.ClientInterceptor(grpcx.ClientConfig{Name: "auth", Timeout: 2 * time.Second, Breakers: g.breaker, Metrics: g.metrics, Retries: 1})))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+	authClient, rbacClient := authv1.NewAuthServiceClient(conn), authv1.NewRbacServiceClient(conn)
+
+	g.mr = miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: g.mr.Addr(), ReadTimeout: 300 * time.Millisecond, DialTimeout: 300 * time.Millisecond,
+		DialerRetries: 1, DialerRetryTimeout: 20 * time.Millisecond, MaxRetries: 1, PoolTimeout: 300 * time.Millisecond})
+	t.Cleanup(func() { _ = rdb.Close() })
+
+	g.signer = jwtx.NewSigner(signerKey(), "ecom-auth", "ecom", 15*time.Minute, g.clk)
+	verifier := jwtx.NewVerifier("ecom-auth", "ecom", g.clk, nil)
+	require.NoError(t, verifier.SetKeys(g.signer.JWKS()))
+
+	grants := transport.NewGrantsCache(func(ctx context.Context) ([]rbac.Grant, error) {
+		r, err := rbacClient.GetGrants(ctx, &emptypb.Empty{})
+		if err != nil {
+			return nil, err
+		}
+		out := make([]rbac.Grant, 0, len(r.GetGrants()))
+		for _, x := range r.GetGrants() {
+			out = append(out, rbac.Grant{Role: x.GetRole(), Resource: x.GetResource(), Actions: x.GetActions(), Attributes: x.GetAttributes()})
+		}
+		return out, nil
+	}, o.grantsTTL, g.clk)
+
+	g.rbac.grants = func() ([]*authv1.RoleGrant, error) {
+		return []*authv1.RoleGrant{
+			{Role: "user", Resource: "profile", Actions: []string{"readOwn", "updateOwn"}},
+			{Role: "shop", Resource: "profile", Actions: []string{"readOwn"}},
+			{Role: "admin", Resource: "profile", Actions: []string{"readAny", "readOwn"}},
+			{Role: "admin", Resource: "rbac", Actions: []string{"createAny", "readAny"}},
+		}, nil
+	}
+
+	g.engine = transport.NewRouter(transport.Options{
+		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient},
+		Verifier:  verifier, Denylist: redisx.NewDenylist(rdb, "auth:revoked:"), Limiter: redisx.NewLimiter(rdb, "rl:"),
+		APICache: redisx.NewCache(rdb, "apikey:"), Grants: grants, Metrics: g.metrics, IDs: nil,
+		CORSOrigins: o.corsOrigins, CookieSecure: false, CookieTTL: 7 * 24 * time.Hour,
+		RateLimit: o.rateLimit, AuthRateLimit: o.authRateLimit, BodyLimit: o.bodyLimit,
+		APIKeyTTL: time.Minute, APIKeyNegTTL: 10 * time.Second,
+	})
+	return g
+}
+
+// token mints an access token like auth-service would.
+func (g *gw) token(accountID, typ string, roles ...string) string {
+	g.t.Helper()
+	tok, _, err := g.signer.Sign(accountID, typ, "a@b.co", roles, "sid-"+accountID)
+	require.NoError(g.t, err)
+	return tok
+}
+
+type req struct {
+	method, path, body string
+	headers            map[string]string
+	cookies            []*stdhttp.Cookie
+}
+
+type resp struct {
+	*httptest.ResponseRecorder
+}
+
+func (g *gw) do(r req) resp {
+	g.t.Helper()
+	var body io.Reader
+	if r.body != "" {
+		body = bytes.NewBufferString(r.body)
+	}
+	hr := httptest.NewRequest(r.method, r.path, body)
+	if r.body != "" {
+		hr.Header.Set("Content-Type", "application/json")
+	}
+	for k, v := range r.headers {
+		hr.Header.Set(k, v)
+	}
+	for _, c := range r.cookies {
+		hr.AddCookie(c)
+	}
+	rec := httptest.NewRecorder()
+	g.engine.ServeHTTP(rec, hr)
+	return resp{rec}
+}
+
+// call is a request with the public API key already set.
+func (g *gw) call(method, path, body string, hdr ...string) resp {
+	g.t.Helper()
+	h := map[string]string{"x-api-key": "good-key"}
+	for i := 0; i+1 < len(hdr); i += 2 {
+		h[hdr[i]] = hdr[i+1]
+	}
+	return g.do(req{method: method, path: path, body: body, headers: h})
+}
+
+// as is call with a bearer token.
+func (g *gw) as(token, method, path, body string) resp {
+	g.t.Helper()
+	return g.call(method, path, body, "Authorization", "Bearer "+token)
+}
+
+func (r resp) json() map[string]any {
+	var m map[string]any
+	_ = json.Unmarshal(r.Body.Bytes(), &m)
+	return m
+}
+
+func (r resp) errCode() string {
+	m := r.json()
+	s, _ := m["error"].(string)
+	return s
+}
+
+func (r resp) cookie(name string) *stdhttp.Cookie {
+	for _, c := range r.Result().Cookies() {
+		if c.Name == name {
+			return c
+		}
+	}
+	return nil
+}
+
+var _ = errs.KindOf

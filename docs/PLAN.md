@@ -129,11 +129,11 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 ## P4 — api-gateway
 
 ### Tasks ([05](05-api-design.md), [07](07-auth-security.md))
-- [ ] **P4.1 Bootstrap** — Gin engine, recovery, request id, access log, CORS, security headers, body limit, cookie handling, OpenAPI file served at `/docs`, error → envelope, ops endpoints.
-- [ ] **P4.2 Middleware** — `APIKey` (Redis-cached), `JWT` (JWKS cache, `kid` refresh, denylist), `RBAC` (`Rbac("readAny","profile")`), `ShopOnly` / `UserOnly`, rate limit.
-- [ ] **P4.3 gRPC clients** — one client per upstream through the breaker interceptor; principal metadata injection; breaker open → 503 + `Retry-After`.
-- [ ] **P4.4 Handlers** — auth (shop / user / rbac / profile) in this phase; catalog, inventory, cart, discount, checkout / orders, notification added in P5–P11.
-- [ ] **P4.5 Infra** — `api-gateway/infra/local`.
+- [x] **P4.1 Bootstrap** — Gin engine, recovery, request id, access log, CORS, security headers, body limit, cookie handling, OpenAPI file served at `/docs`, error → envelope, ops endpoints.
+- [x] **P4.2 Middleware** — `APIKey` (Redis-cached), `JWT` (JWKS cache, `kid` refresh, denylist), `RBAC` (`Rbac("readAny","profile")`), `ShopOnly` / `UserOnly`, rate limit.
+- [x] **P4.3 gRPC clients** — one client per upstream through the breaker interceptor; principal metadata injection; breaker open → 503 + `Retry-After`.
+- [ ] **P4.4 Handlers** *(auth / rbac / profile done; the rest are added by their phases)* — auth (shop / user / rbac / profile) in this phase; catalog, inventory, cart, discount, checkout / orders, notification added in P5–P11.
+- [x] **P4.5 Infra** — `api-gateway/infra/local`.
 
 ### Acceptance (integration, stub gRPC servers)
 | # | Scenario | Expectation |

@@ -45,7 +45,7 @@ func newFx(t *testing.T) *fx {
 		Accounts: w.Accounts(), Sessions: w.Sessions(), Otps: w.Otps(), ApiKeys: w.ApiKeys(), Rbac: w.Rbac(),
 		Hasher: f.hasher, Signer: signer, Secrets: f.secrets, Denylist: w, Tx: w, Outbox: w,
 		Clock: clk, IDs: &idgen.Sequence{Prefix: "id-"},
-		Settings: usecase.Settings{RefreshTTL: 7 * 24 * time.Hour, OTPTTL: 5 * time.Minute, VerifyLinkBase: "http://localhost:3000/v1/api/user/welcome_back"},
+		Settings: usecase.Settings{RefreshTTL: 7 * 24 * time.Hour, OTPTTL: 5 * time.Minute, VerifyLinkBase: "http://localhost:8088/v1/api/user/welcome_back"},
 	})
 	return f
 }

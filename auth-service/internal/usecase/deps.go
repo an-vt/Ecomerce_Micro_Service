@@ -15,7 +15,7 @@ import (
 type Settings struct {
 	RefreshTTL     time.Duration // session lifetime, 7 days
 	OTPTTL         time.Duration // email verification link lifetime, 5 minutes
-	VerifyLinkBase string        // e.g. http://localhost:3000/v1/api/user/welcome_back
+	VerifyLinkBase string        // e.g. http://localhost:8088/v1/api/user/welcome_back
 }
 
 // Deps is everything the use cases need.

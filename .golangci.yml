@@ -28,6 +28,7 @@ linters:
     gosec:
       excludes:
         - G104 # covered by errcheck
+        - G101 # matches error-code names like INVALID_CREDENTIALS; secrets here come from env / *_FILE only
         - G115 # integer conversions are range-checked where it matters (money, ids)
         - G304 # file paths come from operator-controlled config (*_FILE secrets)
     depguard:
