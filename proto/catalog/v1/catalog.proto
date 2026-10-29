@@ -1,0 +1,217 @@
+syntax = "proto3";
+
+package ecom.catalog.v1;
+
+import "google/protobuf/empty.proto";
+
+// Products, SPU/SKU and comments (docs/05-api-design.md §2, docs/04-data-model.md §2).
+service CatalogService {
+  // Shop-facing (the caller is the shop in the forwarded principal).
+  rpc CreateProduct(CreateProductRequest) returns (Product);
+  rpc UpdateProduct(UpdateProductRequest) returns (Product);
+  rpc PublishProduct(ProductIdRequest) returns (Product);
+  rpc UnpublishProduct(ProductIdRequest) returns (Product);
+  rpc ListShopProducts(ListShopProductsRequest) returns (ListProductsResponse);
+  rpc CreateSpu(CreateSpuRequest) returns (SpuResponse);
+
+  // Public.
+  rpc ListProducts(ListProductsRequest) returns (ListProductsResponse);
+  rpc SearchProducts(SearchProductsRequest) returns (ListProductsResponse);
+  rpc GetProduct(ProductIdRequest) returns (Product);
+  rpc GetSpu(GetSpuRequest) returns (SpuResponse);
+  rpc GetSku(GetSkuRequest) returns (Sku);
+
+  // Comments.
+  rpc CreateComment(CreateCommentRequest) returns (Comment);
+  rpc DeleteComment(DeleteCommentRequest) returns (google.protobuf.Empty);
+  rpc ListComments(ListCommentsRequest) returns (ListCommentsResponse);
+
+  // Internal (cart, order, discount).
+  rpc GetProductsByIds(GetProductsByIdsRequest) returns (GetProductsByIdsResponse);
+  rpc ListProductIdsByShop(ListProductIdsByShopRequest) returns (ListProductIdsByShopResponse);
+}
+
+message Product {
+  string id = 1;
+  string shop_id = 2;
+  string shop_name = 3;
+  string name = 4;
+  string description = 5;
+  string slug = 6;
+  int64 price = 7;
+  int64 quantity = 8;
+  string type = 9;
+  string thumb = 10;
+  string attributes_json = 11;
+  double ratings_average = 12;
+  bool is_draft = 13;
+  bool is_published = 14;
+  string created_at = 15;
+  string updated_at = 16;
+}
+
+message CreateProductRequest {
+  string type = 1;
+  string name = 2;
+  string description = 3;
+  int64 price = 4;
+  int64 quantity = 5;
+  string thumb = 6;
+  string attributes_json = 7;
+}
+
+message UpdateProductRequest {
+  string product_id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  optional int64 price = 4;
+  optional int64 quantity = 5;
+  optional string thumb = 6;
+  optional string attributes_json = 7;
+}
+
+message ProductIdRequest {
+  string product_id = 1;
+}
+
+message ListProductsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string sort = 3; // "ctime" (newest first, default) | "price_asc" | "price_desc"
+}
+
+message SearchProductsRequest {
+  string keyword = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message ListShopProductsRequest {
+  bool published = 1; // false: drafts
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message ListProductsResponse {
+  repeated Product products = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message Variation {
+  string name = 1;
+  repeated string options = 2;
+  repeated string images = 3;
+}
+
+message Spu {
+  string id = 1;
+  string shop_id = 2;
+  string name = 3;
+  string thumb = 4;
+  string description = 5;
+  string slug = 6;
+  int64 price = 7;
+  repeated string categories = 8;
+  int64 quantity = 9;
+  string attributes_json = 10;
+  double ratings_average = 11;
+  repeated Variation variations = 12;
+  bool is_draft = 13;
+  bool is_published = 14;
+}
+
+message Sku {
+  string id = 1;
+  string spu_id = 2;
+  repeated int32 tier_idx = 3;
+  bool is_default = 4;
+  string slug = 5;
+  int32 sort = 6;
+  int64 price = 7;
+  int64 stock = 8;
+}
+
+message SkuInput {
+  repeated int32 tier_idx = 1;
+  bool is_default = 2;
+  int32 sort = 3;
+  int64 price = 4;
+  int64 stock = 5;
+}
+
+message CreateSpuRequest {
+  string name = 1;
+  string thumb = 2;
+  string description = 3;
+  int64 price = 4;
+  repeated string categories = 5;
+  int64 quantity = 6;
+  string attributes_json = 7;
+  repeated Variation variations = 8;
+  repeated SkuInput skus = 9;
+}
+
+message GetSpuRequest {
+  string spu_id = 1;
+}
+
+message SpuResponse {
+  Spu spu = 1;
+  repeated Sku skus = 2;
+}
+
+message GetSkuRequest {
+  string sku_id = 1;
+  string spu_id = 2;
+}
+
+message Comment {
+  string id = 1;
+  string product_id = 2;
+  string user_id = 3;
+  string content = 4;
+  int64 left = 5;
+  int64 right = 6;
+  string parent_id = 7;
+  string created_at = 8;
+}
+
+message CreateCommentRequest {
+  string product_id = 1;
+  string content = 2;
+  string parent_comment_id = 3;
+}
+
+message DeleteCommentRequest {
+  string comment_id = 1;
+  string product_id = 2;
+}
+
+message ListCommentsRequest {
+  string product_id = 1;
+  string parent_id = 2;
+  int32 limit = 3;
+  int32 skip = 4;
+}
+
+message ListCommentsResponse {
+  repeated Comment comments = 1;
+}
+
+message GetProductsByIdsRequest {
+  repeated string ids = 1;
+}
+
+message GetProductsByIdsResponse {
+  repeated Product products = 1;
+}
+
+message ListProductIdsByShopRequest {
+  string shop_id = 1;
+}
+
+message ListProductIdsByShopResponse {
+  repeated string ids = 1;
+}

@@ -173,3 +173,14 @@ func (r seedRunner) Seed(ctx context.Context, class string) ([]string, error) {
 func Console(db *mongo.Database) (console.Migrator, console.Seeder) {
 	return NewRunner(db, Migrations), seedRunner{db: db, set: Seeders}
 }
+
+// EnsureCollection creates a collection unless it already exists, so migrations stay idempotent (a re-run after a
+// partial failure must not fail on the collections the first run created).
+func EnsureCollection(ctx context.Context, db *mongo.Database, name string) error {
+	err := db.CreateCollection(ctx, name)
+	var ce mongo.CommandError
+	if errors.As(err, &ce) && ce.Code == 48 { // NamespaceExists
+		return nil
+	}
+	return err
+}

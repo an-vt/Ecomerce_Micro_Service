@@ -160,3 +160,11 @@ func TestRegistriesAndConsole(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), n)
 }
+
+func TestEnsureCollectionIsIdempotent(t *testing.T) {
+	ctx := context.Background()
+	s, _ := setup(t)
+	require.NoError(t, mongomigrate.EnsureCollection(ctx, s.DB(), "things"))
+	require.NoError(t, mongomigrate.EnsureCollection(ctx, s.DB(), "things"), "creating it again is not an error")
+	assert.True(t, slices.Contains(collections(t, s), "things"))
+}
