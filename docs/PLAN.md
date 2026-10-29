@@ -107,12 +107,12 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 ## P3 — auth-service
 
 ### Tasks ([07](07-auth-security.md), [04 §1](04-data-model.md#1-auth_db-postgresql))
-- [ ] **P3.1 Domain** — `Account` (shop / user, password, status), `Session` (rotate, reuse detection, revoke), `Otp`, `ApiKey`, `Role` / `Resource` / `Grant`; value objects `Email`, `Password`.
-- [ ] **P3.2 Use cases** — `SignUpShop`, `Login`, `Refresh`, `Logout`, `RequestEmailVerification`, `VerifyEmail`, `SetPassword`, `GetAccount`, `ValidateApiKey`, `GetJwks`, RBAC CRUD + `GetGrants`.
-- [ ] **P3.3 Persistence** — bun repositories + row models + mappers; migrations `2026_10_30_0000NN_create_*_table.go`; seeders (`RbacSeeder`, `AdminSeeder`, `ApiKeySeeder`).
-- [ ] **P3.4 Transport** — `proto/auth/v1/auth.proto` (`AuthService`, `RbacService`), gRPC handlers, `cmd/auth-service`, `cmd/console`.
-- [ ] **P3.5 Events** — `auth.shop.registered`, `auth.user.registered`, `auth.email-verification.requested` via outbox.
-- [ ] **P3.6 Infra** — `auth-service/infra/local`.
+- [x] **P3.1 Domain** — `Account` (shop / user, password, status), `Session` (rotate, reuse detection, revoke), `Otp`, `ApiKey`, `Role` / `Resource` / `Grant`; value objects `Email`, `Password`.
+- [x] **P3.2 Use cases** — `SignUpShop`, `Login`, `Refresh`, `Logout`, `RequestEmailVerification`, `VerifyEmail`, `SetPassword`, `GetAccount`, `ValidateApiKey`, `GetJwks`, RBAC CRUD + `GetGrants`.
+- [x] **P3.3 Persistence** — bun repositories + row models + mappers; migrations `2026_10_30_0000NN_create_*_table.go`; seeders (`RbacSeeder`, `AdminSeeder`, `ApiKeySeeder`).
+- [x] **P3.4 Transport** — `proto/auth/v1/auth.proto` (`AuthService`, `RbacService`), gRPC handlers, `cmd/auth-service`, `cmd/console`.
+- [x] **P3.5 Events** — `auth.shop.registered`, `auth.user.registered`, `auth.email-verification.requested` via outbox.
+- [x] **P3.6 Infra** — `auth-service/infra/local`.
 
 ### Acceptance
 | # | Scenario | Expectation |

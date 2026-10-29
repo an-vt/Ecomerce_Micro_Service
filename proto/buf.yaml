@@ -3,9 +3,9 @@ modules:
   - path: .
 lint:
   use:
-    - STANDARD
+    - BASIC
   except:
-    - PACKAGE_VERSION_SUFFIX
+    - PACKAGE_DIRECTORY_MATCH   # proto/<svc>/v1/<svc>.proto, package ecom.<svc>.v1 (docs/03 §5)
 breaking:
   use:
     - FILE

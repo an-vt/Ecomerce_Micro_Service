@@ -61,11 +61,11 @@ func TestProblemsAreCollected(t *testing.T) {
 
 func TestLoadBaseDefaultsAndOverrides(t *testing.T) {
 	l := loader(nil, nil)
-	b := config.LoadBase(l, "order-service", 8106, 50056)
+	b := config.LoadBase(l, "order-service", 8106, 9106)
 	require.NoError(t, l.Err())
 	assert.Equal(t, "order-service", b.ServiceName)
 	assert.Equal(t, 8106, b.HTTPPort)
-	assert.Equal(t, 50056, b.GRPCPort)
+	assert.Equal(t, 9106, b.GRPCPort)
 	assert.Equal(t, 2*time.Second, b.GRPCTimeout)
 	assert.Equal(t, 0.5, b.BreakerError)
 	assert.Equal(t, 10, b.BreakerMin)

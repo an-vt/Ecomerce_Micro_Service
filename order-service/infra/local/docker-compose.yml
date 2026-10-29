@@ -13,7 +13,7 @@ services:
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-8106}:8106"
-      - "${GRPC_PORT:-50056}:50056"
+      - "${GRPC_PORT:-9106}:9106"
     volumes:
       - ../../../secrets:/run/secrets:ro
     labels:

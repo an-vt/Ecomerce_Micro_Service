@@ -1,0 +1,171 @@
+syntax = "proto3";
+
+package ecom.auth.v1;
+
+import "google/protobuf/empty.proto";
+
+// Identity, sessions, API keys and RBAC (docs/05-api-design.md §2, docs/07-auth-security.md).
+service AuthService {
+  rpc SignUpShop(SignUpShopRequest) returns (AuthResponse);
+  rpc Login(LoginRequest) returns (AuthResponse);
+  rpc Refresh(RefreshRequest) returns (AuthResponse);
+  rpc Logout(LogoutRequest) returns (google.protobuf.Empty);
+  rpc RequestEmailVerification(RequestEmailVerificationRequest) returns (google.protobuf.Empty);
+  rpc VerifyEmail(VerifyEmailRequest) returns (AuthResponse);
+  // The caller (from the principal metadata) sets a password on their own account.
+  rpc SetPassword(SetPasswordRequest) returns (google.protobuf.Empty);
+  rpc GetAccount(GetAccountRequest) returns (Account);
+  rpc ValidateApiKey(ValidateApiKeyRequest) returns (ValidateApiKeyResponse);
+  rpc GetJwks(google.protobuf.Empty) returns (JwksResponse);
+}
+
+service RbacService {
+  rpc CreateRole(CreateRoleRequest) returns (Role);
+  rpc ListRoles(google.protobuf.Empty) returns (ListRolesResponse);
+  rpc CreateResource(CreateResourceRequest) returns (Resource);
+  rpc ListResources(google.protobuf.Empty) returns (ListResourcesResponse);
+  // Every grant of every active role, flattened — cached by the gateway.
+  rpc GetGrants(google.protobuf.Empty) returns (GetGrantsResponse);
+}
+
+enum AccountType {
+  ACCOUNT_TYPE_UNSPECIFIED = 0;
+  ACCOUNT_TYPE_SHOP = 1;
+  ACCOUNT_TYPE_USER = 2;
+}
+
+message Account {
+  string id = 1;
+  AccountType type = 2;
+  string email = 3;
+  string name = 4;
+  string status = 5;
+  bool verified = 6;
+  repeated string roles = 7;
+  bool has_password = 8;
+}
+
+message Tokens {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_in_seconds = 3;
+  string session_id = 4;
+}
+
+message AuthResponse {
+  Account account = 1;
+  Tokens tokens = 2;
+}
+
+message SignUpShopRequest {
+  string name = 1;
+  string email = 2;
+  string password = 3;
+}
+
+message LoginRequest {
+  AccountType type = 1;
+  string email = 2;
+  string password = 3;
+}
+
+message RefreshRequest {
+  string refresh_token = 1;
+}
+
+message LogoutRequest {
+  string session_id = 1;
+}
+
+message RequestEmailVerificationRequest {
+  string email = 1;
+}
+
+message VerifyEmailRequest {
+  string token = 1;
+}
+
+message SetPasswordRequest {
+  string password = 1;
+}
+
+message GetAccountRequest {
+  string account_id = 1;
+}
+
+message ValidateApiKeyRequest {
+  string key = 1;
+}
+
+message ValidateApiKeyResponse {
+  bool valid = 1;
+  repeated string permissions = 2;
+}
+
+message Jwk {
+  string kty = 1;
+  string kid = 2;
+  string alg = 3;
+  string use = 4;
+  string n = 5;
+  string e = 6;
+}
+
+message JwksResponse {
+  repeated Jwk keys = 1;
+}
+
+message Grant {
+  string resource = 1;
+  repeated string actions = 2;
+  string attributes = 3;
+}
+
+message Role {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  string status = 4;
+  string description = 5;
+  repeated Grant grants = 6;
+}
+
+message CreateRoleRequest {
+  string name = 1;
+  string slug = 2;
+  string status = 3;
+  string description = 4;
+  repeated Grant grants = 5;
+}
+
+message ListRolesResponse {
+  repeated Role roles = 1;
+}
+
+message Resource {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  string description = 4;
+}
+
+message CreateResourceRequest {
+  string name = 1;
+  string slug = 2;
+  string description = 3;
+}
+
+message ListResourcesResponse {
+  repeated Resource resources = 1;
+}
+
+message RoleGrant {
+  string role = 1;
+  string resource = 2;
+  repeated string actions = 3;
+  string attributes = 4;
+}
+
+message GetGrantsResponse {
+  repeated RoleGrant grants = 1;
+}

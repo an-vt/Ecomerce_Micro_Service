@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Scaffold a service module (docs/03-project-structure.md §1.1) from tools/newservice/templates.
 #
-#   tools/newservice/new-service.sh NAME=order-service SHORT=order HTTP=8106 GRPC=50056 DB=pg
+#   tools/newservice/new-service.sh NAME=order-service SHORT=order HTTP=8106 GRPC=9106 DB=pg
 #
 # DB: pg | mongo | none.  GRPC=0 means no gRPC server (api-gateway).
 # Existing files are never overwritten, so the script is safe to re-run.

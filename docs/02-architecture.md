@@ -5,14 +5,14 @@
 | # | Service | Port (REST or gRPC / HTTP ops) | Store | Responsibility |
 |---|---|---|---|---|
 | 1 | **api-gateway** | 3000 (REST) | Redis | The only public entry (Gin). API-key check, JWT (RS256) verify, session-revocation check, RBAC, rate limit, request id, REST → gRPC translation, one circuit breaker per upstream, Swagger. |
-| 2 | **auth-service** | 50051 / 8101 | PostgreSQL `auth_db` | Shops, users, sessions (refresh rotation + reuse detection), API keys (hashed), roles / resources / grants, OTP, JWKS. |
-| 3 | **catalog-service** | 50052 / 8102 | MongoDB `catalog_db`, Redis | Typed products (strategy factory), SPU / SKU, search, publish, SKU cache, shop projection, comments (nested set). |
-| 4 | **inventory-service** | 50053 / 8103 | PostgreSQL `inventory_db` | Stock per product, reservations per order (reserve / release / commit), reservation expiry. |
-| 5 | **cart-service** | 50054 / 8104 | MongoDB `cart_db` | Cart per user with price snapshots. |
-| 6 | **discount-service** | 50055 / 8105 | PostgreSQL `discount_db` | Discount codes, amount calculation, usage records. |
-| 7 | **order-service** | 50056 / 8106 | PostgreSQL `order_db` | Checkout review, orders, **checkout saga orchestrator**, idempotency keys. |
-| 8 | **payment-service** | 50057 / 8107 | PostgreSQL `payment_db` | Payments, mock provider adapter, refunds. |
-| 9 | **notification-service** | 50058 / 8108 | MongoDB `notification_db` | In-app notifications, email templates, email delivery (SMTP → Mailpit locally). |
+| 2 | **auth-service** | 9101 / 8101 | PostgreSQL `auth_db` | Shops, users, sessions (refresh rotation + reuse detection), API keys (hashed), roles / resources / grants, OTP, JWKS. |
+| 3 | **catalog-service** | 9102 / 8102 | MongoDB `catalog_db`, Redis | Typed products (strategy factory), SPU / SKU, search, publish, SKU cache, shop projection, comments (nested set). |
+| 4 | **inventory-service** | 9103 / 8103 | PostgreSQL `inventory_db` | Stock per product, reservations per order (reserve / release / commit), reservation expiry. |
+| 5 | **cart-service** | 9104 / 8104 | MongoDB `cart_db` | Cart per user with price snapshots. |
+| 6 | **discount-service** | 9105 / 8105 | PostgreSQL `discount_db` | Discount codes, amount calculation, usage records. |
+| 7 | **order-service** | 9106 / 8106 | PostgreSQL `order_db` | Checkout review, orders, **checkout saga orchestrator**, idempotency keys. |
+| 8 | **payment-service** | 9107 / 8107 | PostgreSQL `payment_db` | Payments, mock provider adapter, refunds. |
+| 9 | **notification-service** | 9108 / 8108 | MongoDB `notification_db` | In-app notifications, email templates, email delivery (SMTP → Mailpit locally). |
 
 The ops HTTP port of every internal service serves `/health/live`, `/health/ready`, `/metrics` only.
 

@@ -81,3 +81,8 @@ Format: context → decision → consequences. All **Accepted** (2026-10-29) unl
 - **Context:** The team knows `php artisan migrate`; the reference project provides the same workflow for Go.
 - **Decision:** Timestamped Go migration files (`2026_10_30_000010_create_accounts_table.go`) with `Up` / `Down`, batches in a `migrations` table, a `console` binary per service (`make:migration`, `migrate`, `migrate:rollback`, `migrate:fresh`, `migrate:status`, `db:seed`). Each PostgreSQL migration runs in its own transaction; Mongo services use the same runner for collections and indexes.
 - **Consequences:** Uniform operations across 8 stateful services; migrations are code, so they are covered by the integration tests (up → down → up).
+
+### D-017 gRPC ports 9101–9108 (not the 50051 convention)
+- **Context:** On macOS, `launchd` holds a socket on `127.0.0.1:50051` (Apple's `gamepolicyd`), so a container publishing 50051 is shadowed on loopback: connects succeed but reach macOS, not the service. 50051–50058 also sit in the OS ephemeral port range.
+- **Decision:** gRPC ports are 9101 (auth) … 9108 (notification), pairing with the ops HTTP ports 8101–8108.
+- **Consequences:** Works on developer laptops and CI alike; the "50051" gRPC convention is not used anywhere in this repo.

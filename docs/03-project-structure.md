@@ -43,6 +43,8 @@ Module path prefix: `github.com/an-vt/ecom/` (`.../platform-go`, `.../proto`, `.
 │   ├── usecase/               one file per command / query; ports.go (interfaces for everything outside the process); set.go groups use cases
 │   ├── repository/postgres/   bun repositories (or repository/mongo/ for Mongo services) + row models and mappers
 │   ├── client/<peer>/         gRPC clients to other services (wrapped by gobreaker)
+│   ├── security/              (auth only) bcrypt hasher and random-secret generator
+│   ├── fake/ + repotest/      in-memory fakes and the repository contract suite shared with the PostgreSQL integration tests
 │   ├── transport/grpc/        gRPC server handlers
 │   ├── transport/kafka/       consumers (+ command handlers for saga participants)
 │   ├── transport/http/        Gin handlers (api-gateway only); other services: ops endpoints from platform-go

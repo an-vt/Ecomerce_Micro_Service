@@ -55,7 +55,7 @@ Healthcheck in compose: `["CMD", "/app", "-healthcheck"]`.
 |---|---|---|
 | `SERVICE_NAME` | `order-service` | logs, metrics, traces |
 | `HTTP_PORT` | `8106` | ops port (gateway: public REST port 3000) |
-| `GRPC_PORT` | `50056` | gRPC bind (not for gateway) |
+| `GRPC_PORT` | `9106` | gRPC bind (not for gateway) |
 | `LOG_LEVEL` | `info` | slog level |
 | `KAFKA_BROKERS` | `ecom-kafka:9092` | |
 | `REDIS_URL` | `redis://ecom-redis:6379` | where used |
@@ -67,7 +67,7 @@ Healthcheck in compose: `["CMD", "/app", "-healthcheck"]`.
 
 | Service | Vars |
 |---|---|
-| api-gateway | `AUTH_GRPC_URL=ecom-auth:50051`, `CATALOG_GRPC_URL`, `INVENTORY_GRPC_URL`, `CART_GRPC_URL`, `DISCOUNT_GRPC_URL`, `ORDER_GRPC_URL`, `NOTIFICATION_GRPC_URL`, `CORS_ORIGINS`, `RATE_LIMIT_PER_MIN`, `COOKIE_SECURE` |
+| api-gateway | `AUTH_GRPC_URL=ecom-auth:9101`, `CATALOG_GRPC_URL`, `INVENTORY_GRPC_URL`, `CART_GRPC_URL`, `DISCOUNT_GRPC_URL`, `ORDER_GRPC_URL`, `NOTIFICATION_GRPC_URL`, `CORS_ORIGINS`, `RATE_LIMIT_PER_MIN`, `COOKIE_SECURE` |
 | auth-service | `DATABASE_URL=postgres://auth:auth@ecom-postgres:5432/auth_db`, `AUTH_JWT_PRIVATE_KEY_FILE`, `AUTH_JWT_PUBLIC_KEY_FILE`, `ACCESS_TOKEN_TTL_SEC=900`, `REFRESH_TOKEN_TTL_SEC=604800`, `OTP_TTL_SEC=300`, `VERIFY_LINK_BASE=http://localhost:3000/v1/api/user/welcome_back`, `SEED_API_KEY`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` |
 | catalog-service | `MONGO_URI=mongodb://catalog:catalog@ecom-mongo:27017/catalog_db?replicaSet=rs0&authSource=catalog_db`, `SKU_CACHE_TTL_SEC=30` |
 | inventory-service | `DATABASE_URL=…/inventory_db`, `CATALOG_GRPC_URL`, `RESERVATION_TTL_MS=900000` |
