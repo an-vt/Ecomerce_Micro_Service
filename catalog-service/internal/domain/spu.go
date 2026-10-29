@@ -95,6 +95,16 @@ func NewSpu(id, shopID string, in SpuInput, now time.Time) (*Spu, []*Sku, error)
 		Price: money.Amount(in.Price), Categories: append([]string(nil), in.Categories...), Quantity: in.Quantity,
 		Attributes: cloneMap(in.Attributes), RatingsAverage: DefaultRating, Variations: in.Variations, IsDraft: true, CreatedAt: now}
 
+	skus, err := buildSkus(id, name, in)
+	if err != nil {
+		return nil, nil, err
+	}
+	return spu, skus, nil
+}
+
+// buildSkus validates every SKU against the variation tiers and builds them. Exactly one SKU is the default (the
+// first when none is flagged); no two SKUs may pick the same combination of options.
+func buildSkus(spuID, name string, in SpuInput) ([]*Sku, error) {
 	defaults := 0
 	for _, s := range in.Skus {
 		if s.IsDefault {
@@ -102,30 +112,37 @@ func NewSpu(id, shopID string, in SpuInput, now time.Time) (*Spu, []*Sku, error)
 		}
 	}
 	if defaults > 1 {
-		return nil, nil, invalidSku("only one sku can be the default")
+		return nil, invalidSku("only one sku can be the default")
 	}
 	skus := make([]*Sku, len(in.Skus))
 	seen := map[string]bool{}
 	for i, s := range in.Skus {
-		if s.Price < 0 || s.Stock < 0 {
-			return nil, nil, invalidSku("sku %d has a negative price or stock", i)
+		if err := checkSku(i, s, in.Variations, seen); err != nil {
+			return nil, err
 		}
-		if len(s.TierIdx) != len(in.Variations) {
-			return nil, nil, invalidSku("sku %d must pick one option for each of the %d variation tiers", i, len(in.Variations))
-		}
-		key := fmt.Sprint(s.TierIdx)
-		if seen[key] {
-			return nil, nil, invalidSku("sku %d repeats the combination %v", i, s.TierIdx)
-		}
-		seen[key] = true
-		for tier, idx := range s.TierIdx {
-			if idx < 0 || idx >= len(in.Variations[tier].Options) {
-				return nil, nil, invalidSku("sku %d: option %d does not exist in tier %q", i, idx, in.Variations[tier].Name)
-			}
-		}
-		skus[i] = &Sku{ID: fmt.Sprintf("%s.%d", id, i+1), SpuID: id, TierIdx: append([]int(nil), s.TierIdx...),
+		skus[i] = &Sku{ID: fmt.Sprintf("%s.%d", spuID, i+1), SpuID: spuID, TierIdx: append([]int(nil), s.TierIdx...),
 			IsDefault: s.IsDefault || (defaults == 0 && i == 0), Slug: Slugify(fmt.Sprintf("%s %v", name, s.TierIdx)),
 			Sort: s.Sort, Price: money.Amount(s.Price), Stock: s.Stock}
 	}
-	return spu, skus, nil
+	return skus, nil
+}
+
+func checkSku(i int, s SkuInput, tiers []Variation, seen map[string]bool) error {
+	if s.Price < 0 || s.Stock < 0 {
+		return invalidSku("sku %d has a negative price or stock", i)
+	}
+	if len(s.TierIdx) != len(tiers) {
+		return invalidSku("sku %d must pick one option for each of the %d variation tiers", i, len(tiers))
+	}
+	key := fmt.Sprint(s.TierIdx)
+	if seen[key] {
+		return invalidSku("sku %d repeats the combination %v", i, s.TierIdx)
+	}
+	seen[key] = true
+	for tier, idx := range s.TierIdx {
+		if idx < 0 || idx >= len(tiers[tier].Options) {
+			return invalidSku("sku %d: option %d does not exist in tier %q", i, idx, tiers[tier].Name)
+		}
+	}
+	return nil
 }

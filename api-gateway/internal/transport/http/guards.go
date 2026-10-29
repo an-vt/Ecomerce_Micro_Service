@@ -121,7 +121,8 @@ func requireType(t principal.Type) gin.HandlerFunc {
 	}
 }
 
-func userOnly() gin.HandlerFunc { return requireType(principal.TypeUser) }
+func userOnly() gin.HandlerFunc      { return requireType(principal.TypeUser) }
+func shopOnlyGuard() gin.HandlerFunc { return requireType(principal.TypeShop) }
 
 // ---- RBAC -----------------------------------------------------------------------------------------------------
 

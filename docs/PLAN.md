@@ -132,7 +132,7 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 - [x] **P4.1 Bootstrap** — Gin engine, recovery, request id, access log, CORS, security headers, body limit, cookie handling, OpenAPI file served at `/docs`, error → envelope, ops endpoints.
 - [x] **P4.2 Middleware** — `APIKey` (Redis-cached), `JWT` (JWKS cache, `kid` refresh, denylist), `RBAC` (`Rbac("readAny","profile")`), `ShopOnly` / `UserOnly`, rate limit.
 - [x] **P4.3 gRPC clients** — one client per upstream through the breaker interceptor; principal metadata injection; breaker open → 503 + `Retry-After`.
-- [ ] **P4.4 Handlers** *(auth / rbac / profile done; the rest are added by their phases)* — auth (shop / user / rbac / profile) in this phase; catalog, inventory, cart, discount, checkout / orders, notification added in P5–P11.
+- [ ] **P4.4 Handlers** *(auth / rbac / profile / catalog / comment done; inventory, cart, discount, orders, notification come with their phases)* — auth (shop / user / rbac / profile) in this phase; catalog, inventory, cart, discount, checkout / orders, notification added in P5–P11.
 - [x] **P4.5 Infra** — `api-gateway/infra/local`.
 
 ### Acceptance (integration, stub gRPC servers)
@@ -149,12 +149,12 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 ## P5 — catalog-service
 
 ### Tasks ([04 §2](04-data-model.md#2-catalog_db-mongodb))
-- [ ] **P5.1 Domain** — `Product` aggregate, `ProductTypeRegistry` (Electronic / Clothing / Furniture strategies), `Spu`, `Sku`, `Comment` (nested-set ops).
-- [ ] **P5.2 Use cases** — create / update / publish / unpublish / list / search / get product; create SPU, get SPU, get SKU (cache-aside + null cache); comments; `GetProductsByIds`, `ListProductIdsByShop`.
-- [ ] **P5.3 Persistence** — Mongo repositories, Redis cache, shop projection; migrations (`create_products_collection`, indexes…).
-- [ ] **P5.4 Transport** — `proto/catalog/v1`, gRPC handlers, `auth.shop.registered` consumer.
-- [ ] **P5.5 Events** — `catalog.product.created|updated`.
-- [ ] **P5.6 Gateway routes** — catalog + comment handlers.
+- [x] **P5.1 Domain** — `Product` aggregate, `ProductTypeRegistry` (Electronic / Clothing / Furniture strategies), `Spu`, `Sku`, `Comment` (nested-set ops).
+- [x] **P5.2 Use cases** — create / update / publish / unpublish / list / search / get product; create SPU, get SPU, get SKU (cache-aside + null cache); comments; `GetProductsByIds`, `ListProductIdsByShop`.
+- [x] **P5.3 Persistence** — Mongo repositories, Redis cache, shop projection; migrations (`create_products_collection`, indexes…).
+- [x] **P5.4 Transport** — `proto/catalog/v1`, gRPC handlers, `auth.shop.registered` consumer.
+- [x] **P5.5 Events** — `catalog.product.created|updated`.
+- [x] **P5.6 Gateway routes** — catalog + comment handlers.
 
 ### Acceptance
 | # | Scenario | Expectation |

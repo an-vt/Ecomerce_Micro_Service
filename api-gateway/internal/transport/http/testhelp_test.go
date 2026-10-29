@@ -34,6 +34,7 @@ import (
 	"github.com/an-vt/ecom/platform-go/rbac"
 	"github.com/an-vt/ecom/platform-go/redisx"
 	authv1 "github.com/an-vt/ecom/proto/gen/go/auth/v1"
+	catalogv1 "github.com/an-vt/ecom/proto/gen/go/catalog/v1"
 )
 
 // ---- stub auth / rbac services (real gRPC servers over an in-memory connection) -----------------------------
@@ -160,6 +161,116 @@ func authResponse(id string, typ authv1.AccountType) *authv1.AuthResponse {
 	}
 }
 
+type catalogStub struct {
+	catalogv1.UnimplementedCatalogServiceServer
+	mu     sync.Mutex
+	last   metadata.MD
+	list   func() (*catalogv1.ListProductsResponse, error)
+	get    func(*catalogv1.ProductIdRequest) (*catalogv1.Product, error)
+	create func(*catalogv1.CreateProductRequest) (*catalogv1.Product, error)
+	update func(*catalogv1.UpdateProductRequest) (*catalogv1.Product, error)
+}
+
+func (s *catalogStub) enter(ctx context.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.last, _ = metadata.FromIncomingContext(ctx)
+}
+
+func (s *catalogStub) ListProducts(ctx context.Context, in *catalogv1.ListProductsRequest) (*catalogv1.ListProductsResponse, error) {
+	s.enter(ctx)
+	if s.list != nil {
+		r, err := s.list()
+		return r, grpcx.ToStatus(err)
+	}
+	return &catalogv1.ListProductsResponse{Products: []*catalogv1.Product{{Id: "p1", Name: "Shirt", AttributesJson: `{"size":"M"}`}}, Total: 1, Page: in.GetPage(), Limit: in.GetLimit()}, nil
+}
+
+func (s *catalogStub) GetProduct(ctx context.Context, in *catalogv1.ProductIdRequest) (*catalogv1.Product, error) {
+	s.enter(ctx)
+	if s.get != nil {
+		r, err := s.get(in)
+		return r, grpcx.ToStatus(err)
+	}
+	return &catalogv1.Product{Id: in.GetProductId(), Name: "Shirt", Price: 100, AttributesJson: `{"size":"M"}`}, nil
+}
+
+func (s *catalogStub) CreateProduct(ctx context.Context, in *catalogv1.CreateProductRequest) (*catalogv1.Product, error) {
+	s.enter(ctx)
+	if s.create != nil {
+		r, err := s.create(in)
+		return r, grpcx.ToStatus(err)
+	}
+	return &catalogv1.Product{Id: "p-new", Name: in.GetName(), Type: in.GetType(), IsDraft: true, AttributesJson: in.GetAttributesJson()}, nil
+}
+
+func (s *catalogStub) UpdateProduct(ctx context.Context, in *catalogv1.UpdateProductRequest) (*catalogv1.Product, error) {
+	s.enter(ctx)
+	if s.update != nil {
+		r, err := s.update(in)
+		return r, grpcx.ToStatus(err)
+	}
+	return &catalogv1.Product{Id: in.GetProductId(), AttributesJson: in.GetAttributesJson()}, nil
+}
+
+func (s *catalogStub) PublishProduct(ctx context.Context, in *catalogv1.ProductIdRequest) (*catalogv1.Product, error) {
+	s.enter(ctx)
+	return &catalogv1.Product{Id: in.GetProductId(), IsPublished: true}, nil
+}
+
+func (s *catalogStub) UnpublishProduct(ctx context.Context, in *catalogv1.ProductIdRequest) (*catalogv1.Product, error) {
+	s.enter(ctx)
+	return &catalogv1.Product{Id: in.GetProductId()}, nil
+}
+
+func (s *catalogStub) SearchProducts(ctx context.Context, in *catalogv1.SearchProductsRequest) (*catalogv1.ListProductsResponse, error) {
+	s.enter(ctx)
+	return &catalogv1.ListProductsResponse{Products: []*catalogv1.Product{{Id: "found-" + in.GetKeyword()}}, Total: 1}, nil
+}
+
+func (s *catalogStub) ListShopProducts(ctx context.Context, in *catalogv1.ListShopProductsRequest) (*catalogv1.ListProductsResponse, error) {
+	s.enter(ctx)
+	id := "draft"
+	if in.GetPublished() {
+		id = "published"
+	}
+	return &catalogv1.ListProductsResponse{Products: []*catalogv1.Product{{Id: id}}, Total: 1}, nil
+}
+
+func (s *catalogStub) CreateSpu(ctx context.Context, in *catalogv1.CreateSpuRequest) (*catalogv1.SpuResponse, error) {
+	s.enter(ctx)
+	r := &catalogv1.SpuResponse{Spu: &catalogv1.Spu{Id: "spu-1", Name: in.GetName(), Categories: in.GetCategories(), Variations: in.GetVariations()}}
+	for i, k := range in.GetSkus() {
+		r.Skus = append(r.Skus, &catalogv1.Sku{Id: "spu-1." + string(rune('1'+i)), SpuId: "spu-1", TierIdx: k.GetTierIdx(), Price: k.GetPrice()})
+	}
+	return r, nil
+}
+
+func (s *catalogStub) GetSpu(ctx context.Context, in *catalogv1.GetSpuRequest) (*catalogv1.SpuResponse, error) {
+	s.enter(ctx)
+	return &catalogv1.SpuResponse{Spu: &catalogv1.Spu{Id: in.GetSpuId()}, Skus: []*catalogv1.Sku{{Id: in.GetSpuId() + ".1", SpuId: in.GetSpuId()}}}, nil
+}
+
+func (s *catalogStub) GetSku(ctx context.Context, in *catalogv1.GetSkuRequest) (*catalogv1.Sku, error) {
+	s.enter(ctx)
+	return &catalogv1.Sku{Id: in.GetSkuId(), SpuId: in.GetSpuId(), Price: 55}, nil
+}
+
+func (s *catalogStub) ListComments(ctx context.Context, in *catalogv1.ListCommentsRequest) (*catalogv1.ListCommentsResponse, error) {
+	s.enter(ctx)
+	return &catalogv1.ListCommentsResponse{Comments: []*catalogv1.Comment{{Id: "c1", ProductId: in.GetProductId(), ParentId: in.GetParentId(), Content: "hi"}}}, nil
+}
+
+func (s *catalogStub) CreateComment(ctx context.Context, in *catalogv1.CreateCommentRequest) (*catalogv1.Comment, error) {
+	s.enter(ctx)
+	return &catalogv1.Comment{Id: "c-new", ProductId: in.GetProductId(), Content: in.GetContent(), ParentId: in.GetParentCommentId()}, nil
+}
+
+func (s *catalogStub) DeleteComment(ctx context.Context, in *catalogv1.DeleteCommentRequest) (*emptypb.Empty, error) {
+	s.enter(ctx)
+	return &emptypb.Empty{}, nil
+}
+
 type rbacStub struct {
 	authv1.UnimplementedRbacServiceServer
 	grants     func() ([]*authv1.RoleGrant, error)
@@ -209,6 +320,7 @@ type gw struct {
 	engine  *gin.Engine
 	auth    *authStub
 	rbac    *rbacStub
+	catalog *catalogStub
 	mr      *miniredis.Miniredis
 	signer  *jwtx.Signer
 	clk     *clock.Fixed
@@ -232,12 +344,13 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	for _, m := range mut {
 		m(&o)
 	}
-	g := &gw{t: t, auth: &authStub{}, rbac: &rbacStub{}, clk: clock.NewFixed(time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)), metrics: metrics.New()}
+	g := &gw{t: t, auth: &authStub{}, rbac: &rbacStub{}, catalog: &catalogStub{}, clk: clock.NewFixed(time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)), metrics: metrics.New()}
 
 	lis := bufconn.Listen(1 << 20)
 	srv := grpc.NewServer()
 	authv1.RegisterAuthServiceServer(srv, g.auth)
 	authv1.RegisterRbacServiceServer(srv, g.rbac)
+	catalogv1.RegisterCatalogServiceServer(srv, g.catalog)
 	go func() { _ = srv.Serve(lis) }()
 	g.stop = srv.Stop
 	t.Cleanup(srv.Stop)
@@ -249,6 +362,7 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 	authClient, rbacClient := authv1.NewAuthServiceClient(conn), authv1.NewRbacServiceClient(conn)
+	catalogClient := catalogv1.NewCatalogServiceClient(conn)
 
 	g.mr = miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: g.mr.Addr(), ReadTimeout: 300 * time.Millisecond, DialTimeout: 300 * time.Millisecond,
@@ -281,7 +395,7 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	}
 
 	g.engine = transport.NewRouter(transport.Options{
-		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient},
+		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient, Catalog: catalogClient},
 		Verifier:  verifier, Denylist: redisx.NewDenylist(rdb, "auth:revoked:"), Limiter: redisx.NewLimiter(rdb, "rl:"),
 		APICache: redisx.NewCache(rdb, "apikey:"), Grants: grants, Metrics: g.metrics, IDs: nil,
 		CORSOrigins: o.corsOrigins, CookieSecure: false, CookieTTL: 7 * 24 * time.Hour,

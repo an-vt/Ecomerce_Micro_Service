@@ -345,7 +345,7 @@ func (tr *tree) consistent() error {
 			if !ok {
 				return fmt.Errorf("%s: parent %s missing", n.ID, n.ParentID)
 			}
-			if !(p.Left < n.Left && n.Right < p.Right) {
+			if p.Left >= n.Left || n.Right >= p.Right {
 				return fmt.Errorf("%s (%d,%d) is not inside parent %s (%d,%d)", n.ID, n.Left, n.Right, p.ID, p.Left, p.Right)
 			}
 		}

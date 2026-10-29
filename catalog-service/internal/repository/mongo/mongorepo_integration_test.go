@@ -95,10 +95,9 @@ func TestNameAndSpuUniquenessIsEnforcedByTheDatabase(t *testing.T) {
 			err = r.Products.Create(ctx, p)
 			mu.Lock()
 			defer mu.Unlock()
-			switch {
-			case err == nil:
+			if err == nil {
 				created++
-			default:
+			} else {
 				taken++
 			}
 		}()

@@ -162,3 +162,98 @@ paths:
       summary: Read the caller's own profile (readOwn:profile)
       security: [{ apiKey: [], bearerAuth: [] }]
       responses: { '200': { $ref: '#/components/responses/Ok' }, '403': { $ref: '#/components/responses/Error' } }
+  /v1/api/product:
+    get:
+      tags: [catalog]
+      summary: List published products
+      parameters: [{ name: page, in: query, schema: { type: integer } }, { name: limit, in: query, schema: { type: integer } }, { name: sort, in: query, schema: { type: string, enum: [ctime, price_asc, price_desc] } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+    post:
+      tags: [catalog]
+      summary: Create a draft product (shop)
+      security: [{ apiKey: [], bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [product_type, product_name], properties: { product_type: { type: string, enum: [Electronic, Clothing, Furniture] }, product_name: { type: string }, product_description: { type: string }, product_price: { type: integer }, product_quantity: { type: integer }, product_thumb: { type: string }, product_attributes: { type: object } } } } } }
+      responses: { '201': { $ref: '#/components/responses/Ok' }, '400': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
+  /v1/api/product/search/{keySearch}:
+    get:
+      tags: [catalog]
+      summary: Full-text search of published products
+      parameters: [{ name: keySearch, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+  /v1/api/product/{productId}:
+    get:
+      tags: [catalog]
+      summary: A published product
+      parameters: [{ name: productId, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '404': { $ref: '#/components/responses/Error' } }
+    patch:
+      tags: [catalog]
+      summary: Partially update a product of the calling shop (attributes are merged)
+      security: [{ apiKey: [], bearerAuth: [] }]
+      parameters: [{ name: productId, in: path, required: true, schema: { type: string } }]
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '403': { $ref: '#/components/responses/Error' }, '404': { $ref: '#/components/responses/Error' } }
+  /v1/api/product/publish/{id}:
+    post:
+      tags: [catalog]
+      summary: Publish a product (shop)
+      security: [{ apiKey: [], bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '403': { $ref: '#/components/responses/Error' } }
+  /v1/api/product/unpublish/{id}:
+    post:
+      tags: [catalog]
+      summary: Unpublish a product (shop)
+      security: [{ apiKey: [], bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '403': { $ref: '#/components/responses/Error' } }
+  /v1/api/product/drafts/all:
+    get:
+      tags: [catalog]
+      summary: The calling shop's draft products
+      security: [{ apiKey: [], bearerAuth: [] }]
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+  /v1/api/product/published/all:
+    get:
+      tags: [catalog]
+      summary: The calling shop's published products
+      security: [{ apiKey: [], bearerAuth: [] }]
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+  /v1/api/product/spu/new:
+    post:
+      tags: [catalog]
+      summary: Create an SPU with its SKUs (shop)
+      security: [{ apiKey: [], bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [product_name, product_category], properties: { product_name: { type: string }, product_category: { type: array, items: { type: string } }, product_variations: { type: array, items: { type: object } }, sku_list: { type: array, items: { type: object } } } } } } }
+      responses: { '201': { $ref: '#/components/responses/Ok' }, '400': { $ref: '#/components/responses/Error' } }
+  /v1/api/product/spu/get_spu_info:
+    get:
+      tags: [catalog]
+      summary: An SPU with its SKUs
+      parameters: [{ name: product_id, in: query, required: true, schema: { type: string } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '404': { $ref: '#/components/responses/Error' } }
+  /v1/api/product/sku/select_variation:
+    get:
+      tags: [catalog]
+      summary: One SKU (cached for 30 s, unknown ids too)
+      parameters: [{ name: sku_id, in: query, required: true, schema: { type: string } }, { name: product_id, in: query, required: true, schema: { type: string } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '404': { $ref: '#/components/responses/Error' } }
+  /v1/api/comment/list:
+    get:
+      tags: [comment]
+      summary: Direct replies of a comment, or the top level
+      parameters: [{ name: productId, in: query, required: true, schema: { type: string } }, { name: parentId, in: query, schema: { type: string } }, { name: limit, in: query, schema: { type: integer } }, { name: skip, in: query, schema: { type: integer } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+  /v1/api/comment:
+    post:
+      tags: [comment]
+      summary: Comment on a product or reply to a comment
+      security: [{ apiKey: [], bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [productId, content], properties: { productId: { type: string }, content: { type: string }, parentCommentId: { type: string } } } } } }
+      responses: { '201': { $ref: '#/components/responses/Ok' }, '404': { $ref: '#/components/responses/Error' } }
+    delete:
+      tags: [comment]
+      summary: Delete your comment and its replies
+      security: [{ apiKey: [], bearerAuth: [] }]
+      parameters: [{ name: id, in: query, required: true, schema: { type: string } }, { name: productId, in: query, required: true, schema: { type: string } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '403': { $ref: '#/components/responses/Error' } }

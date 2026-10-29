@@ -15,12 +15,14 @@ import (
 	"github.com/an-vt/ecom/platform-go/rbac"
 	"github.com/an-vt/ecom/platform-go/redisx"
 	authv1 "github.com/an-vt/ecom/proto/gen/go/auth/v1"
+	catalogv1 "github.com/an-vt/ecom/proto/gen/go/catalog/v1"
 )
 
 // Upstreams are the gRPC clients of the services behind the gateway (added phase by phase).
 type Upstreams struct {
-	Auth authv1.AuthServiceClient
-	Rbac authv1.RbacServiceClient
+	Auth    authv1.AuthServiceClient
+	Rbac    authv1.RbacServiceClient
+	Catalog catalogv1.CatalogServiceClient
 }
 
 // Options is everything NewRouter needs.
@@ -108,5 +110,25 @@ func NewRouter(o Options) *gin.Engine {
 	pf := v1.Group("/profile", authed)
 	pf.GET("/viewAny", requirePermission(o.Grants, "read", "profile", rbac.Any), auth.viewProfile)
 	pf.GET("/viewOwn", requirePermission(o.Grants, "read", "profile", rbac.Own), auth.viewProfile)
+
+	cat := &Catalog{client: o.Catalog}
+	pr := v1.Group("/product")
+	pr.GET("", cat.list)
+	pr.GET("/search/:keySearch", cat.search)
+	pr.GET("/spu/get_spu_info", cat.getSpu)
+	pr.GET("/sku/select_variation", cat.getSku)
+	pr.GET("/drafts/all", authed, shopOnlyGuard(), cat.shopList(false))
+	pr.GET("/published/all", authed, shopOnlyGuard(), cat.shopList(true))
+	pr.GET("/:productId", cat.get)
+	pr.POST("", authed, shopOnlyGuard(), cat.create)
+	pr.POST("/spu/new", authed, shopOnlyGuard(), cat.createSpu)
+	pr.POST("/publish/:id", authed, shopOnlyGuard(), cat.setPublished(true))
+	pr.POST("/unpublish/:id", authed, shopOnlyGuard(), cat.setPublished(false))
+	pr.PATCH("/:productId", authed, shopOnlyGuard(), cat.update)
+
+	cm := v1.Group("/comment")
+	cm.GET("/list", cat.listComments)
+	cm.POST("", authed, cat.createComment)
+	cm.DELETE("", authed, cat.deleteComment)
 	return r
 }
