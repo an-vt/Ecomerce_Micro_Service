@@ -88,7 +88,7 @@ SKU cache: Redis key `sku:<skuId>`, TTL 30 s, `null` cached too (cache-penetrati
 
 ## 7. payment_db (PostgreSQL)
 
-`payments`: `id uuid PK`, `order_id uuid`, `user_id`, `amount int`, `currency char(3)`, `method`, `status` (`PENDING`\|`SUCCEEDED`\|`FAILED`\|`REFUNDED`), `provider_ref NULL`, `failure_reason NULL`, timestamps. `UNIQUE(order_id)`.
+`payments`: `id uuid PK`, `order_id uuid`, `user_id`, `amount int`, `currency char(3)`, `method`, `status` (`PENDING`\|`SUCCEEDED`\|`FAILED`\|`REFUNDED`\|`CANCELLED`), `provider_ref NULL`, `failure_reason NULL`, timestamps. `UNIQUE(order_id)`. `CANCELLED` is a tombstone left when the saga compensates before (or while) the charge ran: a late `ProcessPayment` for that order is refused. A tombstone has no user, method or amount, so `user_id` defaults to `''`.
 
 ## 8. notification_db (MongoDB)
 

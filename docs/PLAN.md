@@ -219,9 +219,9 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 
 ## P9 — payment-service
 
-- [ ] **P9.1 Domain** — `Payment` (PENDING → SUCCEEDED / FAILED → REFUNDED).
-- [ ] **P9.2 Provider port + mock adapter** — token `tok_ok` / `tok_fail` / `tok_timeout`; decorated with a gobreaker guard.
-- [ ] **P9.3 Use cases / consumer** — `ProcessPayment`, `RefundPayment` from `payment.commands`; replies via outbox.
+- [x] **P9.1 Domain** — `Payment` (PENDING → SUCCEEDED / FAILED → REFUNDED).
+- [x] **P9.2 Provider port + mock adapter** — token `tok_ok` / `tok_fail` / `tok_timeout`; decorated with a gobreaker guard.
+- [x] **P9.3 Use cases / consumer** — `ProcessPayment`, `RefundPayment` from `payment.commands`; replies via outbox.
 
 | # | Acceptance | Expectation |
 |---|---|---|

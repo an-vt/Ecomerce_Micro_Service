@@ -55,7 +55,7 @@ Healthcheck in compose: `["CMD", "/app", "-healthcheck"]`.
 |---|---|---|
 | `SERVICE_NAME` | `order-service` | logs, metrics, traces |
 | `HTTP_PORT` | `8106` | ops port (gateway: public REST port 8088) |
-| `GRPC_PORT` | `9106` | gRPC bind (not for gateway) |
+| `GRPC_PORT` | `9106` | gRPC bind (not for gateway, and not for payment-service, which has no gRPC server) |
 | `LOG_LEVEL` | `info` | slog level |
 | `KAFKA_BROKERS` | `ecom-kafka:9092` | |
 | `REDIS_URL` | `redis://ecom-redis:6379` | where used |
@@ -74,7 +74,7 @@ Healthcheck in compose: `["CMD", "/app", "-healthcheck"]`.
 | cart-service | `MONGO_URI=…/cart_db…`, `CATALOG_GRPC_ADDR`, `INVENTORY_GRPC_ADDR` |
 | discount-service | `DATABASE_URL=…/discount_db`, `CATALOG_GRPC_ADDR` |
 | order-service | `DATABASE_URL=…/order_db`, `CATALOG_GRPC_ADDR`, `CART_GRPC_ADDR`, `DISCOUNT_GRPC_ADDR`, `SAGA_STEP_TIMEOUT_MS`, `SAGA_SWEEP_INTERVAL_MS` |
-| payment-service | `DATABASE_URL=…/payment_db`, `PAYMENT_PROVIDER_TIMEOUT_MS=3000`, `PAYMENT_CURRENCY=VND` |
+| payment-service | `DATABASE_URL=…/payment_db`, `PAYMENT_PROVIDER_TIMEOUT_MS=3000`, `PAYMENT_CURRENCY=VND` (no `GRPC_PORT`: driven only by `payment.commands`) |
 | notification-service | `MONGO_URI=…/notification_db…`, `SMTP_HOST=ecom-mailpit`, `SMTP_PORT=1025`, `MAIL_FROM` |
 
 Secrets accept `<VAR>_FILE`.

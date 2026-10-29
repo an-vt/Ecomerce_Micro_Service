@@ -74,7 +74,7 @@ The saga reaches `FAILED` when every compensation has been acknowledged.
 
 ### 4.1 Why this is safe
 
-- **Compensations are idempotent and tolerate "nothing to undo"**: `ReleaseStock` for an order with no reservation replies `StockReleased`; `RefundPayment` for an order never charged marks a `FAILED` / cancelled payment record so a late `ProcessPayment` is refused.
+- **Compensations are idempotent and tolerate "nothing to undo"**: `ReleaseStock` for an order with no reservation replies `StockReleased`; `RefundPayment` for an order never charged leaves a `CANCELLED` payment record (a tombstone) so a late `ProcessPayment` is refused.
 - **Per-order ordering**: forward command and its compensation go to the same topic with the same key (`orderId`), so the participant always handles `ReserveStock` before `ReleaseStock`. A delayed forward command can never be applied after its compensation.
 - **Every participant handler is inbox-guarded** and its reply is written to the outbox in the same transaction as its state change.
 - **Stale replies** (a reply that does not match the current saga state, e.g. `StockReserved` arriving after a timeout) are ignored and counted in `saga_stale_replies_total`.

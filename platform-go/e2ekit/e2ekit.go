@@ -248,3 +248,26 @@ func PublishEvent(t testing.TB, topic, key, typ string, payload any) {
 		t.Fatalf("publish %s: %v", typ, err)
 	}
 }
+
+// Replies reads order.saga.replies from the beginning for the given time and returns every reply of the order, in
+// order. Use it to assert on duplicates, which WaitForReply (first match) cannot show.
+func Replies(t testing.TB, orderID string, wait time.Duration) []event.Envelope {
+	t.Helper()
+	brokers := strings.Split(Env("KAFKA_BROKERS", "127.0.0.1:9094"), ",")
+	cl, err := kgo.NewClient(kgo.SeedBrokers(brokers...), kgo.ConsumeTopics(saga.TopicReplies), kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()))
+	if err != nil {
+		t.Fatalf("kafka client: %v", err)
+	}
+	defer cl.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), wait)
+	defer cancel()
+	var out []event.Envelope
+	for ctx.Err() == nil {
+		cl.PollFetches(ctx).EachRecord(func(r *kgo.Record) {
+			if env, err := event.Parse(r.Value); err == nil && env.AggregateID == orderID {
+				out = append(out, env)
+			}
+		})
+	}
+	return out
+}
