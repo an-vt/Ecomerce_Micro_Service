@@ -17,6 +17,7 @@ import (
 	authv1 "github.com/an-vt/ecom/proto/gen/go/auth/v1"
 	cartv1 "github.com/an-vt/ecom/proto/gen/go/cart/v1"
 	catalogv1 "github.com/an-vt/ecom/proto/gen/go/catalog/v1"
+	discountv1 "github.com/an-vt/ecom/proto/gen/go/discount/v1"
 	inventoryv1 "github.com/an-vt/ecom/proto/gen/go/inventory/v1"
 )
 
@@ -27,6 +28,7 @@ type Upstreams struct {
 	Catalog   catalogv1.CatalogServiceClient
 	Inventory inventoryv1.InventoryServiceClient
 	Cart      cartv1.CartServiceClient
+	Discount  discountv1.DiscountServiceClient
 }
 
 // Options is everything NewRouter needs.
@@ -146,5 +148,13 @@ func NewRouter(o Options) *gin.Engine {
 	cr.POST("/update", crt.update)
 	cr.DELETE("", crt.remove)
 	cr.GET("", crt.get)
+
+	dsc := &Discount{client: o.Discount}
+	ds := v1.Group("/discount")
+	ds.GET("/list_product_code", dsc.productsForCode)
+	ds.POST("", authed, shopOnlyGuard(), dsc.create)
+	ds.PATCH("/:discountId", authed, shopOnlyGuard(), dsc.update)
+	ds.GET("", authed, shopOnlyGuard(), dsc.list)
+	ds.POST("/amount", authed, userOnly(), dsc.amount)
 	return r
 }

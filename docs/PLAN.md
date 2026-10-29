@@ -132,7 +132,7 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 - [x] **P4.1 Bootstrap** — Gin engine, recovery, request id, access log, CORS, security headers, body limit, cookie handling, OpenAPI file served at `/docs`, error → envelope, ops endpoints.
 - [x] **P4.2 Middleware** — `APIKey` (Redis-cached), `JWT` (JWKS cache, `kid` refresh, denylist), `RBAC` (`Rbac("readAny","profile")`), `ShopOnly` / `UserOnly`, rate limit.
 - [x] **P4.3 gRPC clients** — one client per upstream through the breaker interceptor; principal metadata injection; breaker open → 503 + `Retry-After`.
-- [ ] **P4.4 Handlers** *(auth / rbac / profile / catalog / comment / inventory / cart done; discount, orders, notification come with their phases)* — auth (shop / user / rbac / profile) in this phase; catalog, inventory, cart, discount, checkout / orders, notification added in P5–P11.
+- [ ] **P4.4 Handlers** *(auth / rbac / profile / catalog / comment / inventory / cart / discount done; discount, orders, notification come with their phases)* — auth (shop / user / rbac / profile) in this phase; catalog, inventory, cart, discount, checkout / orders, notification added in P5–P11.
 - [x] **P4.5 Infra** — `api-gateway/infra/local`.
 
 ### Acceptance (integration, stub gRPC servers)
@@ -203,9 +203,9 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 
 ## P8 — discount-service
 
-- [ ] **P8.1 Domain** — `Discount.Calculate(items)` (fixed / percent, all / specific, min order), `CanBeUsedBy(userID, usedByUser)`, date validation.
-- [ ] **P8.2 Use cases** — create / update / list; `ListProductsForCode`; `CalculateDiscount`; `ApplyDiscounts` / `ReleaseDiscounts` (saga, `FOR UPDATE`).
-- [ ] **P8.3 Persistence / transport** — bun repositories, migrations, `proto/discount/v1`, `discount.commands` consumer, `discount.discount.created` event, gateway routes.
+- [x] **P8.1 Domain** — `Discount.Calculate(items)` (fixed / percent, all / specific, min order), `CanBeUsedBy(userID, usedByUser)`, date validation.
+- [x] **P8.2 Use cases** — create / update / list; `ListProductsForCode`; `CalculateDiscount`; `ApplyDiscounts` / `ReleaseDiscounts` (saga, `FOR UPDATE`).
+- [x] **P8.3 Persistence / transport** — bun repositories, migrations, `proto/discount/v1`, `discount.commands` consumer, `discount.discount.created` event, gateway routes.
 
 | # | Acceptance | Expectation |
 |---|---|---|

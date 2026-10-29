@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package ecom.discount.v1;
+
+// Discount codes (docs/05-api-design.md §2). Applying and releasing codes for an order are saga commands over Kafka.
+service DiscountService {
+  rpc CreateDiscount(CreateDiscountRequest) returns (Discount);
+  rpc UpdateDiscount(UpdateDiscountRequest) returns (Discount);
+  rpc ListShopDiscounts(ListShopDiscountsRequest) returns (ListShopDiscountsResponse);
+  // Products a code applies to (specific list, or the whole shop catalogue).
+  rpc ListProductsForCode(ListProductsForCodeRequest) returns (ListProductsForCodeResponse);
+  // Read-only preview of what a code would take off these lines for the caller.
+  rpc CalculateDiscount(CalculateDiscountRequest) returns (CalculateDiscountResponse);
+}
+
+message Discount {
+  string id = 1;
+  string shop_id = 2;
+  string code = 3;
+  string name = 4;
+  string description = 5;
+  string type = 6; // fixed_amount | percent
+  int64 value = 7;
+  string start_date = 8;
+  string end_date = 9;
+  int64 max_uses = 10;
+  int64 used_count = 11;
+  int64 max_uses_per_user = 12;
+  int64 min_order_value = 13;
+  bool is_active = 14;
+  string applies_to = 15; // all | specific
+  repeated string product_ids = 16;
+}
+
+message CreateDiscountRequest {
+  string code = 1;
+  string name = 2;
+  string description = 3;
+  string type = 4;
+  int64 value = 5;
+  string start_date = 6; // RFC 3339
+  string end_date = 7;
+  int64 max_uses = 8;
+  int64 max_uses_per_user = 9;
+  int64 min_order_value = 10;
+  string applies_to = 11;
+  repeated string product_ids = 12;
+}
+
+message UpdateDiscountRequest {
+  string discount_id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  optional string end_date = 4;
+  optional bool is_active = 5;
+  optional int64 max_uses = 6;
+  optional int64 max_uses_per_user = 7;
+  optional int64 min_order_value = 8;
+  optional string applies_to = 9;
+  repeated string product_ids = 10;
+  bool replace_product_ids = 11; // product_ids replaces the list only when this is true
+}
+
+message ListShopDiscountsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+}
+
+message ListShopDiscountsResponse {
+  repeated Discount discounts = 1;
+  int64 total = 2;
+}
+
+message ListProductsForCodeRequest {
+  string code = 1;
+  string shop_id = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message ProductSummary {
+  string id = 1;
+  string name = 2;
+  int64 price = 3;
+  string thumb = 4;
+}
+
+message ListProductsForCodeResponse {
+  repeated ProductSummary products = 1;
+  int64 total = 2;
+}
+
+message OrderLine {
+  string product_id = 1;
+  int64 price = 2;
+  int64 quantity = 3;
+}
+
+message CalculateDiscountRequest {
+  string code = 1;
+  string shop_id = 2;
+  repeated OrderLine lines = 3;
+}
+
+message CalculateDiscountResponse {
+  int64 discount = 1;
+  int64 subtotal = 2;
+  int64 total = 3; // subtotal - discount
+}

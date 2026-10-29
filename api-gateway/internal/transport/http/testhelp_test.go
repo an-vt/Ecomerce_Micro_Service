@@ -36,6 +36,7 @@ import (
 	authv1 "github.com/an-vt/ecom/proto/gen/go/auth/v1"
 	cartv1 "github.com/an-vt/ecom/proto/gen/go/cart/v1"
 	catalogv1 "github.com/an-vt/ecom/proto/gen/go/catalog/v1"
+	discountv1 "github.com/an-vt/ecom/proto/gen/go/discount/v1"
 	inventoryv1 "github.com/an-vt/ecom/proto/gen/go/inventory/v1"
 )
 
@@ -346,6 +347,65 @@ func (s *cartStub) GetCart(ctx context.Context, _ *cartv1.GetCartRequest) (*cart
 	return &cartv1.Cart{Id: "c1", UserId: "u1", State: "active"}, nil
 }
 
+type discountStub struct {
+	discountv1.UnimplementedDiscountServiceServer
+	mu        sync.Mutex
+	last      metadata.MD
+	createReq *discountv1.CreateDiscountRequest
+	updateReq *discountv1.UpdateDiscountRequest
+	listReq   *discountv1.ListShopDiscountsRequest
+	codeReq   *discountv1.ListProductsForCodeRequest
+	calcReq   *discountv1.CalculateDiscountRequest
+	fail      error
+}
+
+func (s *discountStub) enter(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.last, _ = metadata.FromIncomingContext(ctx)
+	return grpcx.ToStatus(s.fail)
+}
+
+func (s *discountStub) CreateDiscount(ctx context.Context, in *discountv1.CreateDiscountRequest) (*discountv1.Discount, error) {
+	if err := s.enter(ctx); err != nil {
+		return nil, err
+	}
+	s.createReq = in
+	return &discountv1.Discount{Id: "d1", ShopId: "shop1", Code: in.GetCode(), Name: in.GetName(), Type: in.GetType(), Value: in.GetValue(), IsActive: true, AppliesTo: "all"}, nil
+}
+
+func (s *discountStub) UpdateDiscount(ctx context.Context, in *discountv1.UpdateDiscountRequest) (*discountv1.Discount, error) {
+	if err := s.enter(ctx); err != nil {
+		return nil, err
+	}
+	s.updateReq = in
+	return &discountv1.Discount{Id: in.GetDiscountId(), Name: in.GetName(), ProductIds: in.GetProductIds()}, nil
+}
+
+func (s *discountStub) ListShopDiscounts(ctx context.Context, in *discountv1.ListShopDiscountsRequest) (*discountv1.ListShopDiscountsResponse, error) {
+	if err := s.enter(ctx); err != nil {
+		return nil, err
+	}
+	s.listReq = in
+	return &discountv1.ListShopDiscountsResponse{Total: 1, Discounts: []*discountv1.Discount{{Id: "d1", Code: "SALE10", UsedCount: 2}}}, nil
+}
+
+func (s *discountStub) ListProductsForCode(ctx context.Context, in *discountv1.ListProductsForCodeRequest) (*discountv1.ListProductsForCodeResponse, error) {
+	if err := s.enter(ctx); err != nil {
+		return nil, err
+	}
+	s.codeReq = in
+	return &discountv1.ListProductsForCodeResponse{Total: 1, Products: []*discountv1.ProductSummary{{Id: "p1", Name: "Shirt", Price: 1000, Thumb: "t"}}}, nil
+}
+
+func (s *discountStub) CalculateDiscount(ctx context.Context, in *discountv1.CalculateDiscountRequest) (*discountv1.CalculateDiscountResponse, error) {
+	if err := s.enter(ctx); err != nil {
+		return nil, err
+	}
+	s.calcReq = in
+	return &discountv1.CalculateDiscountResponse{Subtotal: 200000, Discount: 20000, Total: 180000}, nil
+}
+
 type rbacStub struct {
 	authv1.UnimplementedRbacServiceServer
 	grants     func() ([]*authv1.RoleGrant, error)
@@ -398,6 +458,7 @@ type gw struct {
 	catalog   *catalogStub
 	inventory *inventoryStub
 	cart      *cartStub
+	discount  *discountStub
 	mr        *miniredis.Miniredis
 	signer    *jwtx.Signer
 	clk       *clock.Fixed
@@ -421,7 +482,7 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	for _, m := range mut {
 		m(&o)
 	}
-	g := &gw{t: t, auth: &authStub{}, rbac: &rbacStub{}, catalog: &catalogStub{}, inventory: &inventoryStub{}, cart: &cartStub{}, clk: clock.NewFixed(time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)), metrics: metrics.New()}
+	g := &gw{t: t, auth: &authStub{}, rbac: &rbacStub{}, catalog: &catalogStub{}, inventory: &inventoryStub{}, cart: &cartStub{}, discount: &discountStub{}, clk: clock.NewFixed(time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)), metrics: metrics.New()}
 
 	lis := bufconn.Listen(1 << 20)
 	srv := grpc.NewServer()
@@ -430,6 +491,7 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	catalogv1.RegisterCatalogServiceServer(srv, g.catalog)
 	inventoryv1.RegisterInventoryServiceServer(srv, g.inventory)
 	cartv1.RegisterCartServiceServer(srv, g.cart)
+	discountv1.RegisterDiscountServiceServer(srv, g.discount)
 	go func() { _ = srv.Serve(lis) }()
 	g.stop = srv.Stop
 	t.Cleanup(srv.Stop)
@@ -444,6 +506,7 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	catalogClient := catalogv1.NewCatalogServiceClient(conn)
 	inventoryClient := inventoryv1.NewInventoryServiceClient(conn)
 	cartClient := cartv1.NewCartServiceClient(conn)
+	discountClient := discountv1.NewDiscountServiceClient(conn)
 
 	g.mr = miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: g.mr.Addr(), ReadTimeout: 300 * time.Millisecond, DialTimeout: 300 * time.Millisecond,
@@ -476,7 +539,7 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	}
 
 	g.engine = transport.NewRouter(transport.Options{
-		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient, Catalog: catalogClient, Inventory: inventoryClient, Cart: cartClient},
+		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient, Catalog: catalogClient, Inventory: inventoryClient, Cart: cartClient, Discount: discountClient},
 		Verifier:  verifier, Denylist: redisx.NewDenylist(rdb, "auth:revoked:"), Limiter: redisx.NewLimiter(rdb, "rl:"),
 		APICache: redisx.NewCache(rdb, "apikey:"), Grants: grants, Metrics: g.metrics, IDs: nil,
 		CORSOrigins: o.corsOrigins, CookieSecure: false, CookieTTL: 7 * 24 * time.Hour,

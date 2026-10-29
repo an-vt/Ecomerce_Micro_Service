@@ -295,3 +295,38 @@ paths:
       security: [{ apiKey: [], bearerAuth: [] }]
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [shop_order_ids], properties: { shop_order_ids: { type: array, items: { type: object, properties: { shopId: { type: string }, item_products: { type: array, items: { type: object, required: [productId], properties: { productId: { type: string }, shopId: { type: string }, quantity: { type: integer }, old_quantity: { type: integer } } } } } } } } } } } }
       responses: { '200': { $ref: '#/components/responses/Ok' }, '409': { $ref: '#/components/responses/Error' }, '422': { $ref: '#/components/responses/Error' } }
+  /v1/api/discount:
+    post:
+      tags: [discount]
+      summary: Create a discount code for the calling shop
+      security: [{ apiKey: [], bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [code, name, type, value, start_date, end_date, max_uses], properties: { code: { type: string, description: 'Case-insensitive, 3-32 characters' }, name: { type: string }, description: { type: string }, type: { type: string, enum: [fixed_amount, percent] }, value: { type: integer }, start_date: { type: string, format: date-time }, end_date: { type: string, format: date-time }, max_uses: { type: integer, minimum: 1 }, max_uses_per_user: { type: integer, minimum: 0, description: '0 = unlimited' }, min_order_value: { type: integer }, applies_to: { type: string, enum: [all, specific] }, product_ids: { type: array, items: { type: string } } } } } } }
+      responses: { '201': { $ref: '#/components/responses/Ok' }, '400': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
+    get:
+      tags: [discount]
+      summary: The calling shop's discount codes, newest first
+      security: [{ apiKey: [], bearerAuth: [] }]
+      parameters: [{ name: page, in: query, schema: { type: integer } }, { name: limit, in: query, schema: { type: integer } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+  /v1/api/discount/{discountId}:
+    patch:
+      tags: [discount]
+      summary: Change a discount of the calling shop (code, type, value and start date are fixed)
+      security: [{ apiKey: [], bearerAuth: [] }]
+      parameters: [{ name: discountId, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { name: { type: string }, description: { type: string }, end_date: { type: string, format: date-time }, is_active: { type: boolean }, max_uses: { type: integer }, max_uses_per_user: { type: integer }, min_order_value: { type: integer }, applies_to: { type: string, enum: [all, specific] }, product_ids: { type: array, items: { type: string }, description: 'When present, replaces the list' } } } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '403': { $ref: '#/components/responses/Error' }, '404': { $ref: '#/components/responses/Error' } }
+  /v1/api/discount/list_product_code:
+    get:
+      tags: [discount]
+      summary: Products a code applies to (public; API key only)
+      security: [{ apiKey: [] }]
+      parameters: [{ name: code, in: query, required: true, schema: { type: string } }, { name: shopId, in: query, required: true, schema: { type: string } }, { name: page, in: query, schema: { type: integer } }, { name: limit, in: query, schema: { type: integer } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '404': { $ref: '#/components/responses/Error' } }
+  /v1/api/discount/amount:
+    post:
+      tags: [discount]
+      summary: Preview what a code takes off an order (buyers; counts the caller's own uses)
+      security: [{ apiKey: [], bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [code, shopId, products], properties: { code: { type: string }, shopId: { type: string }, products: { type: array, items: { type: object, required: [productId, quantity], properties: { productId: { type: string }, price: { type: integer }, quantity: { type: integer } } } } } } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '422': { $ref: '#/components/responses/Error' } }
