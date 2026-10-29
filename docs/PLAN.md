@@ -132,7 +132,7 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 - [x] **P4.1 Bootstrap** — Gin engine, recovery, request id, access log, CORS, security headers, body limit, cookie handling, OpenAPI file served at `/docs`, error → envelope, ops endpoints.
 - [x] **P4.2 Middleware** — `APIKey` (Redis-cached), `JWT` (JWKS cache, `kid` refresh, denylist), `RBAC` (`Rbac("readAny","profile")`), `ShopOnly` / `UserOnly`, rate limit.
 - [x] **P4.3 gRPC clients** — one client per upstream through the breaker interceptor; principal metadata injection; breaker open → 503 + `Retry-After`.
-- [ ] **P4.4 Handlers** *(auth / rbac / profile / catalog / comment done; inventory, cart, discount, orders, notification come with their phases)* — auth (shop / user / rbac / profile) in this phase; catalog, inventory, cart, discount, checkout / orders, notification added in P5–P11.
+- [ ] **P4.4 Handlers** *(auth / rbac / profile / catalog / comment / inventory done; cart, discount, orders, notification come with their phases)* — auth (shop / user / rbac / profile) in this phase; catalog, inventory, cart, discount, checkout / orders, notification added in P5–P11.
 - [x] **P4.5 Infra** — `api-gateway/infra/local`.
 
 ### Acceptance (integration, stub gRPC servers)
@@ -171,10 +171,10 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 ## P6 — inventory-service
 
 ### Tasks ([06 §3](06-checkout-saga.md#3-steps), [04 §3](04-data-model.md#3-inventory_db-postgresql))
-- [ ] **P6.1 Domain** — `Inventory` (`AddStock`, `Reserve`, `Release`, `Commit`), `Reservation`.
-- [ ] **P6.2 Use cases** — `CreateInventoryForProduct`, `AddStock` (owner check), `GetStock`, `CheckStock`, `ReserveStock`, `ReleaseStock`, `CommitStock`, `ExpireReservations` (job).
-- [ ] **P6.3 Persistence** — migrations with `CHECK` constraints; conditional-UPDATE repository.
-- [ ] **P6.4 Transport** — `proto/inventory/v1`, gRPC handlers, consumers for `catalog.product.*` and `inventory.commands`, replies to `order.saga.replies`.
+- [x] **P6.1 Domain** — `Inventory` (`AddStock`, `Reserve`, `Release`, `Commit`), `Reservation`.
+- [x] **P6.2 Use cases** — `CreateInventoryForProduct`, `AddStock` (owner check), `GetStock`, `CheckStock`, `ReserveStock`, `ReleaseStock`, `CommitStock`, `ExpireReservations` (job).
+- [x] **P6.3 Persistence** — migrations with `CHECK` constraints; conditional-UPDATE repository.
+- [x] **P6.4 Transport** — `proto/inventory/v1`, gRPC handlers, consumers for `catalog.product.*` and `inventory.commands`, replies to `order.saga.replies`.
 
 ### Acceptance
 | # | Scenario | Expectation |

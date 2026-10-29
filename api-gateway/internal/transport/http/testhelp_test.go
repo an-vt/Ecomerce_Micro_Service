@@ -35,6 +35,7 @@ import (
 	"github.com/an-vt/ecom/platform-go/redisx"
 	authv1 "github.com/an-vt/ecom/proto/gen/go/auth/v1"
 	catalogv1 "github.com/an-vt/ecom/proto/gen/go/catalog/v1"
+	inventoryv1 "github.com/an-vt/ecom/proto/gen/go/inventory/v1"
 )
 
 // ---- stub auth / rbac services (real gRPC servers over an in-memory connection) -----------------------------
@@ -271,6 +272,32 @@ func (s *catalogStub) DeleteComment(ctx context.Context, in *catalogv1.DeleteCom
 	return &emptypb.Empty{}, nil
 }
 
+type inventoryStub struct {
+	inventoryv1.UnimplementedInventoryServiceServer
+	mu     sync.Mutex
+	last   metadata.MD
+	addErr error
+}
+
+func (s *inventoryStub) enter(ctx context.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.last, _ = metadata.FromIncomingContext(ctx)
+}
+
+func (s *inventoryStub) AddStock(ctx context.Context, in *inventoryv1.AddStockRequest) (*inventoryv1.Stock, error) {
+	s.enter(ctx)
+	if s.addErr != nil {
+		return nil, grpcx.ToStatus(s.addErr)
+	}
+	return &inventoryv1.Stock{ProductId: in.GetProductId(), Stock: 10 + in.GetStock(), Location: in.GetLocation()}, nil
+}
+
+func (s *inventoryStub) GetStock(ctx context.Context, in *inventoryv1.GetStockRequest) (*inventoryv1.Stock, error) {
+	s.enter(ctx)
+	return &inventoryv1.Stock{ProductId: in.GetProductId(), Stock: 7, Reserved: 2}, nil
+}
+
 type rbacStub struct {
 	authv1.UnimplementedRbacServiceServer
 	grants     func() ([]*authv1.RoleGrant, error)
@@ -316,17 +343,18 @@ func signerKey() *rsa.PrivateKey {
 }
 
 type gw struct {
-	t       *testing.T
-	engine  *gin.Engine
-	auth    *authStub
-	rbac    *rbacStub
-	catalog *catalogStub
-	mr      *miniredis.Miniredis
-	signer  *jwtx.Signer
-	clk     *clock.Fixed
-	metrics *metrics.Metrics
-	breaker *breaker.Registry
-	stop    func()
+	t         *testing.T
+	engine    *gin.Engine
+	auth      *authStub
+	rbac      *rbacStub
+	catalog   *catalogStub
+	inventory *inventoryStub
+	mr        *miniredis.Miniredis
+	signer    *jwtx.Signer
+	clk       *clock.Fixed
+	metrics   *metrics.Metrics
+	breaker   *breaker.Registry
+	stop      func()
 }
 
 type gwOpts struct {
@@ -344,13 +372,14 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	for _, m := range mut {
 		m(&o)
 	}
-	g := &gw{t: t, auth: &authStub{}, rbac: &rbacStub{}, catalog: &catalogStub{}, clk: clock.NewFixed(time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)), metrics: metrics.New()}
+	g := &gw{t: t, auth: &authStub{}, rbac: &rbacStub{}, catalog: &catalogStub{}, inventory: &inventoryStub{}, clk: clock.NewFixed(time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)), metrics: metrics.New()}
 
 	lis := bufconn.Listen(1 << 20)
 	srv := grpc.NewServer()
 	authv1.RegisterAuthServiceServer(srv, g.auth)
 	authv1.RegisterRbacServiceServer(srv, g.rbac)
 	catalogv1.RegisterCatalogServiceServer(srv, g.catalog)
+	inventoryv1.RegisterInventoryServiceServer(srv, g.inventory)
 	go func() { _ = srv.Serve(lis) }()
 	g.stop = srv.Stop
 	t.Cleanup(srv.Stop)
@@ -363,6 +392,7 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	t.Cleanup(func() { _ = conn.Close() })
 	authClient, rbacClient := authv1.NewAuthServiceClient(conn), authv1.NewRbacServiceClient(conn)
 	catalogClient := catalogv1.NewCatalogServiceClient(conn)
+	inventoryClient := inventoryv1.NewInventoryServiceClient(conn)
 
 	g.mr = miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: g.mr.Addr(), ReadTimeout: 300 * time.Millisecond, DialTimeout: 300 * time.Millisecond,
@@ -395,7 +425,7 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	}
 
 	g.engine = transport.NewRouter(transport.Options{
-		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient, Catalog: catalogClient},
+		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient, Catalog: catalogClient, Inventory: inventoryClient},
 		Verifier:  verifier, Denylist: redisx.NewDenylist(rdb, "auth:revoked:"), Limiter: redisx.NewLimiter(rdb, "rl:"),
 		APICache: redisx.NewCache(rdb, "apikey:"), Grants: grants, Metrics: g.metrics, IDs: nil,
 		CORSOrigins: o.corsOrigins, CookieSecure: false, CookieTTL: 7 * 24 * time.Hour,

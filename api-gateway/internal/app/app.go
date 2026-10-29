@@ -28,6 +28,7 @@ import (
 	"github.com/an-vt/ecom/platform-go/redisx"
 	authv1 "github.com/an-vt/ecom/proto/gen/go/auth/v1"
 	catalogv1 "github.com/an-vt/ecom/proto/gen/go/catalog/v1"
+	inventoryv1 "github.com/an-vt/ecom/proto/gen/go/inventory/v1"
 )
 
 // Run starts the gateway and blocks until ctx is cancelled or the server fails.
@@ -66,6 +67,11 @@ func Run(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 	defer func() { _ = authConn.Close() }()
+	inventoryConn, err := dial("inventory", cfg.InventoryAddr)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = inventoryConn.Close() }()
 	authClient, rbacClient := authv1.NewAuthServiceClient(authConn), authv1.NewRbacServiceClient(authConn)
 	catalogConn, err := dial("catalog", cfg.CatalogAddr)
 	if err != nil {
@@ -98,7 +104,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 	}, cfg.GrantsCacheTTL, clock.System{})
 
 	router := transport.NewRouter(transport.Options{
-		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient, Catalog: catalogv1.NewCatalogServiceClient(catalogConn)},
+		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient, Catalog: catalogv1.NewCatalogServiceClient(catalogConn), Inventory: inventoryv1.NewInventoryServiceClient(inventoryConn)},
 		Verifier:  verifier, Denylist: redisx.NewDenylist(rdb, "auth:revoked:"), Limiter: redisx.NewLimiter(rdb, "rl:"),
 		APICache: redisx.NewCache(rdb, "apikey:"), Grants: grants, Metrics: m, IDs: idgen.ULID{},
 		Checks: map[string]httpx.Check{

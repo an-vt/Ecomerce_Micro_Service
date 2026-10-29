@@ -23,6 +23,9 @@ linters:
         - (io.Closer).Close
         - (*database/sql.Rows).Close
         - (*net/http.Response).Body.Close
+    staticcheck:
+      # S1016 would have a command type converted into its reply type; the two must stay independent.
+      checks: ["all", "-ST1000", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022", "-S1016"]
     gocyclo:
       min-complexity: 15
     gosec:

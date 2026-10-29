@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package ecom.inventory.v1;
+
+// Stock levels (docs/05-api-design.md §2). The saga steps (reserve / release / commit) are Kafka commands, not RPCs.
+service InventoryService {
+  // A shop adds stock to one of its products.
+  rpc AddStock(AddStockRequest) returns (Stock);
+  rpc GetStock(GetStockRequest) returns (Stock);
+  // Pre-check used by cart-service: is every line available?
+  rpc CheckStock(CheckStockRequest) returns (CheckStockResponse);
+}
+
+message Stock {
+  string product_id = 1;
+  string shop_id = 2;
+  string location = 3;
+  int64 stock = 4;    // available to buy
+  int64 reserved = 5; // held for orders in progress
+}
+
+message AddStockRequest {
+  string product_id = 1;
+  int64 stock = 2; // amount to add, > 0
+  string location = 3;
+}
+
+message GetStockRequest {
+  string product_id = 1;
+}
+
+message StockLine {
+  string product_id = 1;
+  int64 quantity = 2;
+}
+
+message CheckStockRequest {
+  repeated StockLine lines = 1;
+}
+
+message Shortage {
+  string product_id = 1;
+  int64 requested = 2;
+  int64 available = 3;
+}
+
+message CheckStockResponse {
+  bool ok = 1;
+  repeated Shortage shortages = 2;
+}

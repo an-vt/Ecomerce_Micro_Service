@@ -257,3 +257,16 @@ paths:
       security: [{ apiKey: [], bearerAuth: [] }]
       parameters: [{ name: id, in: query, required: true, schema: { type: string } }, { name: productId, in: query, required: true, schema: { type: string } }]
       responses: { '200': { $ref: '#/components/responses/Ok' }, '403': { $ref: '#/components/responses/Error' } }
+  /v1/api/inventory:
+    post:
+      tags: [inventory]
+      summary: Add stock to one of your products (shop)
+      security: [{ apiKey: [], bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [productId, stock], properties: { productId: { type: string }, stock: { type: integer, minimum: 1 }, location: { type: string } } } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '403': { $ref: '#/components/responses/Error' }, '404': { $ref: '#/components/responses/Error' } }
+  /v1/api/inventory/{productId}:
+    get:
+      tags: [inventory]
+      summary: Stock of a product (available and held)
+      parameters: [{ name: productId, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '404': { $ref: '#/components/responses/Error' } }

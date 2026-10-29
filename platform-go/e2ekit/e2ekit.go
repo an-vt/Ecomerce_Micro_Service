@@ -20,6 +20,8 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 
 	"github.com/an-vt/ecom/platform-go/event"
+	"github.com/an-vt/ecom/platform-go/kafkax"
+	"github.com/an-vt/ecom/platform-go/saga"
 )
 
 // Env returns the environment variable k or def.
@@ -185,4 +187,39 @@ func WaitForEvent(t testing.TB, topic string, match func(event.Envelope) bool) e
 	}
 	t.Fatalf("no matching event on %s within 30s", topic)
 	return event.Envelope{}
+}
+
+// SendSagaCommand publishes a saga command to its topic, keyed by the order id, like order-service does.
+func SendSagaCommand(t testing.TB, topic string, m saga.Message) {
+	t.Helper()
+	brokers := strings.Split(Env("KAFKA_BROKERS", "127.0.0.1:9094"), ",")
+	p, err := kafkax.NewProducer(brokers)
+	if err != nil {
+		t.Fatalf("kafka producer: %v", err)
+	}
+	defer p.Close()
+	env, err := saga.Envelope(fmt.Sprintf("e2e-%d", time.Now().UnixNano()), time.Now(), m)
+	if err != nil {
+		t.Fatalf("envelope: %v", err)
+	}
+	raw, err := env.Marshal()
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := p.Publish(ctx, kafkax.Message{Topic: topic, Key: m.Order(), Value: raw}); err != nil {
+		t.Fatalf("publish %s: %v", m.MessageType(), err)
+	}
+}
+
+// WaitForReply waits for a saga reply of the given type for an order on order.saga.replies.
+func WaitForReply(t testing.TB, orderID, typ string, into any) {
+	t.Helper()
+	env := WaitForEvent(t, saga.TopicReplies, func(e event.Envelope) bool { return e.AggregateID == orderID && e.Type == typ })
+	if into != nil {
+		if err := env.Decode(into); err != nil {
+			t.Fatalf("decode %s: %v", typ, err)
+		}
+	}
 }

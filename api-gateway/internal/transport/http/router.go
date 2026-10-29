@@ -16,13 +16,15 @@ import (
 	"github.com/an-vt/ecom/platform-go/redisx"
 	authv1 "github.com/an-vt/ecom/proto/gen/go/auth/v1"
 	catalogv1 "github.com/an-vt/ecom/proto/gen/go/catalog/v1"
+	inventoryv1 "github.com/an-vt/ecom/proto/gen/go/inventory/v1"
 )
 
 // Upstreams are the gRPC clients of the services behind the gateway (added phase by phase).
 type Upstreams struct {
-	Auth    authv1.AuthServiceClient
-	Rbac    authv1.RbacServiceClient
-	Catalog catalogv1.CatalogServiceClient
+	Auth      authv1.AuthServiceClient
+	Rbac      authv1.RbacServiceClient
+	Catalog   catalogv1.CatalogServiceClient
+	Inventory inventoryv1.InventoryServiceClient
 }
 
 // Options is everything NewRouter needs.
@@ -130,5 +132,10 @@ func NewRouter(o Options) *gin.Engine {
 	cm.GET("/list", cat.listComments)
 	cm.POST("", authed, cat.createComment)
 	cm.DELETE("", authed, cat.deleteComment)
+
+	inv := &Inventory{client: o.Inventory}
+	iv := v1.Group("/inventory")
+	iv.POST("", authed, shopOnlyGuard(), inv.addStock)
+	iv.GET("/:productId", inv.get)
 	return r
 }
