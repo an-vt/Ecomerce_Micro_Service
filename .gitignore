@@ -1,0 +1,17 @@
+# build / test output
+bin/
+*.test
+*.out
+coverage*/
+go.work.sum.bak
+
+# local environment and secrets
+.env
+!.env.example
+secrets/
+
+# editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.log

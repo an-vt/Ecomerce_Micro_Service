@@ -1,0 +1,44 @@
+# Local compose for __NAME__ (docs/11-infrastructure.md §2). Shared stores come from shared-infra/infra/local.
+name: ecom-__SHORT__
+
+services:
+  __NAME__:
+    container_name: ecom-__SHORT__
+    build:
+      context: ../../..
+      dockerfile: __NAME__/build/Dockerfile
+      args:
+        TARGET: __NAME__
+    env_file: .env
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-__HTTP__}:__HTTP__"
+      - "${GRPC_PORT:-__GRPC__}:__GRPC__" # __GRPC_ONLY__
+    volumes:
+      - ../../../secrets:/run/secrets:ro
+    labels:
+      logging: ecom
+    healthcheck:
+      test: ["CMD", "/app", "-healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    networks: [ecom_net]
+
+  # Laravel-style CLI (docs/03 §4): docker compose run --rm __NAME__-console migrate
+  __NAME__-console:
+    profiles: [tools]
+    build:
+      context: ../../..
+      dockerfile: __NAME__/build/Dockerfile
+      args:
+        TARGET: console
+    env_file: .env
+    volumes:
+      - ../../../secrets:/run/secrets:ro
+    networks: [ecom_net]
+
+networks:
+  ecom_net:
+    external: true

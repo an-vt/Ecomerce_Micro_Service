@@ -1,0 +1,44 @@
+# Local compose for auth-service (docs/11-infrastructure.md §2). Shared stores come from shared-infra/infra/local.
+name: ecom-auth
+
+services:
+  auth-service:
+    container_name: ecom-auth
+    build:
+      context: ../../..
+      dockerfile: auth-service/build/Dockerfile
+      args:
+        TARGET: auth-service
+    env_file: .env
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8101}:8101"
+      - "${GRPC_PORT:-50051}:50051"
+    volumes:
+      - ../../../secrets:/run/secrets:ro
+    labels:
+      logging: ecom
+    healthcheck:
+      test: ["CMD", "/app", "-healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    networks: [ecom_net]
+
+  # Laravel-style CLI (docs/03 §4): docker compose run --rm auth-service-console migrate
+  auth-service-console:
+    profiles: [tools]
+    build:
+      context: ../../..
+      dockerfile: auth-service/build/Dockerfile
+      args:
+        TARGET: console
+    env_file: .env
+    volumes:
+      - ../../../secrets:/run/secrets:ro
+    networks: [ecom_net]
+
+networks:
+  ecom_net:
+    external: true

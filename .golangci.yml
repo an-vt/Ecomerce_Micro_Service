@@ -1,0 +1,83 @@
+version: "2"
+
+run:
+  timeout: 5m
+  build-tags: [integration, e2e]
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - ineffassign
+    - unused
+    - errorlint
+    - gosec
+    - gocyclo
+    - depguard
+    - misspell
+  settings:
+    errcheck:
+      exclude-functions:
+        - (io.Closer).Close
+        - (*database/sql.Rows).Close
+        - (*net/http.Response).Body.Close
+    gocyclo:
+      min-complexity: 15
+    gosec:
+      excludes:
+        - G104 # covered by errcheck
+        - G115 # integer conversions are range-checked where it matters (money, ids)
+        - G304 # file paths come from operator-controlled config (*_FILE secrets)
+    depguard:
+      # docs/03 §2 — DDD layering, enforced for every service module.
+      rules:
+        domain:
+          files: ["**/internal/domain/**"]
+          deny:
+            - {pkg: database/sql, desc: "domain is persistence-free"}
+            - {pkg: net/http, desc: "domain is transport-free"}
+            - {pkg: github.com/uptrace/bun, desc: "use a repository interface"}
+            - {pkg: go.mongodb.org/mongo-driver, desc: "use a repository interface"}
+            - {pkg: github.com/gin-gonic/gin, desc: "domain is transport-free"}
+            - {pkg: google.golang.org/grpc, desc: "domain is transport-free"}
+            - {pkg: github.com/twmb/franz-go, desc: "domain is messaging-free"}
+            - {pkg: github.com/redis/go-redis, desc: "domain is cache-free"}
+            - {pkg: /internal/usecase, desc: "domain must not depend on usecase"}
+            - {pkg: /internal/repository, desc: "domain must not depend on repository"}
+            - {pkg: /internal/transport, desc: "domain must not depend on transport"}
+            - {pkg: /internal/client, desc: "domain must not depend on clients"}
+        usecase:
+          files: ["**/internal/usecase/**"]
+          deny:
+            - {pkg: database/sql, desc: "go through ports"}
+            - {pkg: net/http, desc: "go through ports"}
+            - {pkg: github.com/uptrace/bun, desc: "go through ports"}
+            - {pkg: go.mongodb.org/mongo-driver, desc: "go through ports"}
+            - {pkg: github.com/gin-gonic/gin, desc: "go through ports"}
+            - {pkg: google.golang.org/grpc, desc: "go through ports"}
+            - {pkg: github.com/twmb/franz-go, desc: "go through ports"}
+            - {pkg: github.com/redis/go-redis, desc: "go through ports"}
+            - {pkg: /internal/repository, desc: "use the port in usecase/ports.go"}
+            - {pkg: /internal/transport, desc: "usecase must not depend on transport"}
+            - {pkg: /internal/client, desc: "use the port in usecase/ports.go"}
+        transport:
+          files: ["**/internal/transport/**"]
+          deny:
+            - {pkg: /internal/repository, desc: "transport calls use cases, not repositories"}
+            - {pkg: /internal/client, desc: "transport calls use cases, not clients"}
+        adapters:
+          files: ["**/internal/repository/**", "**/internal/client/**"]
+          deny:
+            - {pkg: /internal/transport, desc: "adapters must not depend on transport"}
+  exclusions:
+    paths:
+      - gen/
+      - \.pb\.go$
+    rules:
+      - path: _test\.go
+        linters: [gosec, gocyclo, errcheck]
+
+formatters:
+  enable: [gofmt, goimports]

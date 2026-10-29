@@ -1,0 +1,43 @@
+# Local compose for api-gateway (docs/11-infrastructure.md §2). Shared stores come from shared-infra/infra/local.
+name: ecom-gateway
+
+services:
+  api-gateway:
+    container_name: ecom-gateway
+    build:
+      context: ../../..
+      dockerfile: api-gateway/build/Dockerfile
+      args:
+        TARGET: api-gateway
+    env_file: .env
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-3000}:3000"
+    volumes:
+      - ../../../secrets:/run/secrets:ro
+    labels:
+      logging: ecom
+    healthcheck:
+      test: ["CMD", "/app", "-healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    networks: [ecom_net]
+
+  # Laravel-style CLI (docs/03 §4): docker compose run --rm api-gateway-console migrate
+  api-gateway-console:
+    profiles: [tools]
+    build:
+      context: ../../..
+      dockerfile: api-gateway/build/Dockerfile
+      args:
+        TARGET: console
+    env_file: .env
+    volumes:
+      - ../../../secrets:/run/secrets:ro
+    networks: [ecom_net]
+
+networks:
+  ecom_net:
+    external: true

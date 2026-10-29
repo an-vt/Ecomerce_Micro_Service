@@ -1,0 +1,17 @@
+# Build context is the REPOSITORY ROOT (the service uses ../platform-go and ../proto via `replace`).
+#   docker build -f __NAME__/build/Dockerfile --build-arg TARGET=__NAME__ -t ecom/__NAME__:local .
+FROM golang:1.26-alpine AS build
+WORKDIR /src
+COPY platform-go ./platform-go
+COPY proto ./proto
+COPY __NAME__ ./__NAME__
+WORKDIR /src/__NAME__
+# TARGET = __NAME__ | console
+ARG TARGET=__NAME__
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/${TARGET}
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /out/app /app
+USER nonroot:nonroot
+ENTRYPOINT ["/app"]

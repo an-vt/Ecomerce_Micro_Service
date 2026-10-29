@@ -1,0 +1,16 @@
+go 1.26.0
+
+use (
+	./api-gateway
+	./auth-service
+	./cart-service
+	./catalog-service
+	./discount-service
+	./e2e
+	./inventory-service
+	./notification-service
+	./order-service
+	./payment-service
+	./platform-go
+	./proto
+)
