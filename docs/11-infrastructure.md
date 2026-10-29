@@ -73,7 +73,7 @@ Healthcheck in compose: `["CMD", "/app", "-healthcheck"]`.
 | inventory-service | `DATABASE_URL=…/inventory_db`, `CATALOG_GRPC_ADDR`, `RESERVATION_TTL_MS=900000` |
 | cart-service | `MONGO_URI=…/cart_db…`, `CATALOG_GRPC_ADDR`, `INVENTORY_GRPC_ADDR` |
 | discount-service | `DATABASE_URL=…/discount_db`, `CATALOG_GRPC_ADDR` |
-| order-service | `DATABASE_URL=…/order_db`, `CATALOG_GRPC_ADDR`, `CART_GRPC_ADDR`, `DISCOUNT_GRPC_ADDR`, `SAGA_STEP_TIMEOUT_MS`, `SAGA_SWEEP_INTERVAL_MS` |
+| order-service | `DATABASE_URL=…/order_db`, `CATALOG_GRPC_ADDR`, `DISCOUNT_GRPC_ADDR`, `SAGA_STEP_TIMEOUT_MS=30000`, `SAGA_COMPENSATION_RETRY_MS=30000`, `SAGA_SWEEP_INTERVAL_MS=5000`, `FEE_SHIP=0` (order-service does not call cart-service: the cart empties itself on `order.order.confirmed`) |
 | payment-service | `DATABASE_URL=…/payment_db`, `PAYMENT_PROVIDER_TIMEOUT_MS=3000`, `PAYMENT_CURRENCY=VND` (no `GRPC_PORT`: driven only by `payment.commands`) |
 | notification-service | `MONGO_URI=…/notification_db…`, `SMTP_HOST=ecom-mailpit`, `SMTP_PORT=1025`, `MAIL_FROM` |
 

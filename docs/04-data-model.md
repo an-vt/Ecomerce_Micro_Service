@@ -84,7 +84,7 @@ SKU cache: Redis key `sku:<skuId>`, TTL 30 s, `null` cached too (cache-penetrati
 | `orders` | `id uuid PK`, `user_id`, `status`, `total_price`, `total_discount`, `fee_ship`, `total_checkout`, `shipping jsonb`, `payment_method varchar`, `payment_token varchar`, `discounts jsonb` (`[{shopId, code}]`), `tracking_number`, `cancel_reason NULL`, `version int`, timestamps | `INDEX(user_id, created_at)` |
 | `order_items` | `id uuid PK`, `order_id FK`, `product_id`, `shop_id`, `name`, `price`, `quantity` | `INDEX(order_id)` |
 | `saga_instances` | `id uuid PK` (= order id), `type` (`checkout`), `state`, `step_deadline_at`, `data jsonb` (completed steps, payment id, discount amount), `version int`, timestamps | `INDEX(state, step_deadline_at)` |
-| `idempotency_keys` | `user_id`, `key`, `request_hash char(64)`, `order_id`, `created_at` | `PRIMARY KEY(user_id, key)` |
+| `idempotency_keys` | `user_id`, `key`, `request_hash varchar(64)`, `order_id`, `created_at` | `PRIMARY KEY(user_id, key)` |
 
 ## 7. payment_db (PostgreSQL)
 

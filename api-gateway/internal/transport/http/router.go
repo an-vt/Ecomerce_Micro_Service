@@ -19,6 +19,7 @@ import (
 	catalogv1 "github.com/an-vt/ecom/proto/gen/go/catalog/v1"
 	discountv1 "github.com/an-vt/ecom/proto/gen/go/discount/v1"
 	inventoryv1 "github.com/an-vt/ecom/proto/gen/go/inventory/v1"
+	orderv1 "github.com/an-vt/ecom/proto/gen/go/order/v1"
 )
 
 // Upstreams are the gRPC clients of the services behind the gateway (added phase by phase).
@@ -29,6 +30,7 @@ type Upstreams struct {
 	Inventory inventoryv1.InventoryServiceClient
 	Cart      cartv1.CartServiceClient
 	Discount  discountv1.DiscountServiceClient
+	Order     orderv1.OrderServiceClient
 }
 
 // Options is everything NewRouter needs.
@@ -156,5 +158,12 @@ func NewRouter(o Options) *gin.Engine {
 	ds.PATCH("/:discountId", authed, shopOnlyGuard(), dsc.update)
 	ds.GET("", authed, shopOnlyGuard(), dsc.list)
 	ds.POST("/amount", authed, userOnly(), dsc.amount)
+
+	ord := &Order{client: o.Order}
+	v1.POST("/checkout/review", authed, userOnly(), ord.review)
+	od := v1.Group("/orders", authed, userOnly())
+	od.POST("", ord.place)
+	od.GET("", ord.list)
+	od.GET("/:orderId", ord.get)
 	return r
 }

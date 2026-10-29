@@ -34,7 +34,7 @@ Only errors that say "the dependency is unhealthy" open the circuit. Business er
 |---|---|
 | api-gateway | `503 SERVICE_UNAVAILABLE`, `Retry-After: <resetTimeout s>`, `error: "UPSTREAM_UNAVAILABLE"` — in < 5 ms, no network call |
 | cart → catalog / inventory | `UNAVAILABLE` propagated (gateway → 503); cart is not modified |
-| order (review) → catalog / discount / cart | `UNAVAILABLE` propagated; no order is created |
+| order (review, place) → catalog / discount | `UNAVAILABLE` propagated; no order is created |
 | discount → catalog (`list_product_code`) | `UNAVAILABLE` propagated |
 | payment → mock provider | `PaymentFailed{reason:"PROVIDER_UNAVAILABLE"}` → saga compensates |
 

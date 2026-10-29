@@ -1,0 +1,119 @@
+syntax = "proto3";
+
+package ecom.order.v1;
+
+// Checkout and orders (docs/05-api-design.md §2, docs/06-checkout-saga.md). PlaceOrder only accepts the order: stock,
+// discounts and payment are handled by the checkout saga over Kafka, and the client polls GetOrder.
+service OrderService {
+  // Re-prices the items from the catalog and previews the discounts. Writes nothing.
+  rpc ReviewCheckout(ReviewCheckoutRequest) returns (ReviewCheckoutResponse);
+  // Creates the order and starts the saga. Idempotent per (caller, idempotency_key).
+  rpc PlaceOrder(PlaceOrderRequest) returns (PlaceOrderResponse);
+  rpc GetOrder(GetOrderRequest) returns (Order);
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse);
+}
+
+message ItemInput {
+  string product_id = 1;
+  int64 quantity = 2;
+}
+
+// The items bought from one shop and the discount code (at most one) used on them.
+message ShopOrderInput {
+  string shop_id = 1;
+  string discount_code = 2;
+  repeated ItemInput items = 3;
+}
+
+message ReviewCheckoutRequest {
+  repeated ShopOrderInput shop_orders = 1;
+}
+
+message ReviewItem {
+  string product_id = 1;
+  string name = 2;
+  int64 price = 3;
+  int64 quantity = 4;
+}
+
+message ReviewShop {
+  string shop_id = 1;
+  repeated ReviewItem items = 2;
+  int64 subtotal = 3;
+  string discount_code = 4;
+  int64 discount = 5;
+  int64 total = 6;
+}
+
+message ReviewCheckoutResponse {
+  repeated ReviewShop shops = 1;
+  int64 total_price = 2;
+  int64 total_discount = 3;
+  int64 fee_ship = 4;
+  int64 total_checkout = 5;
+}
+
+message Shipping {
+  string name = 1;
+  string phone = 2;
+  string address = 3;
+  string city = 4;
+}
+
+message PlaceOrderRequest {
+  repeated ShopOrderInput shop_orders = 1;
+  Shipping shipping = 2;
+  string payment_method = 3;
+  string payment_token = 4;
+  string idempotency_key = 5;
+}
+
+message PlaceOrderResponse {
+  string order_id = 1;
+  string status = 2;
+}
+
+message GetOrderRequest {
+  string order_id = 1;
+}
+
+message OrderItem {
+  string product_id = 1;
+  string shop_id = 2;
+  string name = 3;
+  int64 price = 4;
+  int64 quantity = 5;
+}
+
+message DiscountRef {
+  string shop_id = 1;
+  string code = 2;
+}
+
+message Order {
+  string id = 1;
+  string user_id = 2;
+  string status = 3;
+  int64 total_price = 4;
+  int64 total_discount = 5;
+  int64 fee_ship = 6;
+  int64 total_checkout = 7;
+  Shipping shipping = 8;
+  string payment_method = 9;
+  repeated OrderItem items = 10;
+  repeated DiscountRef discounts = 11;
+  string cancel_reason = 12;
+  string tracking_number = 13;
+  string created_at = 14;
+  string updated_at = 15;
+}
+
+message ListOrdersRequest {
+  int32 page = 1;
+  int32 limit = 2;
+}
+
+message ListOrdersResponse {
+  repeated Order orders = 1;
+  int64 total = 2;
+}

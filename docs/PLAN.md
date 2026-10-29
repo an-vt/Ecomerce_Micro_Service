@@ -132,7 +132,7 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 - [x] **P4.1 Bootstrap** — Gin engine, recovery, request id, access log, CORS, security headers, body limit, cookie handling, OpenAPI file served at `/docs`, error → envelope, ops endpoints.
 - [x] **P4.2 Middleware** — `APIKey` (Redis-cached), `JWT` (JWKS cache, `kid` refresh, denylist), `RBAC` (`Rbac("readAny","profile")`), `ShopOnly` / `UserOnly`, rate limit.
 - [x] **P4.3 gRPC clients** — one client per upstream through the breaker interceptor; principal metadata injection; breaker open → 503 + `Retry-After`.
-- [ ] **P4.4 Handlers** *(auth / rbac / profile / catalog / comment / inventory / cart / discount done; discount, orders, notification come with their phases)* — auth (shop / user / rbac / profile) in this phase; catalog, inventory, cart, discount, checkout / orders, notification added in P5–P11.
+- [ ] **P4.4 Handlers** *(auth / rbac / profile / catalog / comment / inventory / cart / discount / orders done; discount, orders, notification come with their phases)* — auth (shop / user / rbac / profile) in this phase; catalog, inventory, cart, discount, checkout / orders, notification added in P5–P11.
 - [x] **P4.5 Infra** — `api-gateway/infra/local`.
 
 ### Acceptance (integration, stub gRPC servers)
@@ -236,9 +236,9 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 ## P10 — order-service
 
 ### Tasks ([06](06-checkout-saga.md))
-- [ ] **P10.1 Domain** — `Order` aggregate + status guard, `CheckoutSaga` pure state machine (`OnReply`, `OnTimeout`), command builders.
-- [ ] **P10.2 Use cases** — `ReviewCheckout` (catalog re-price + discount calc), `PlaceOrder` (idempotency), `HandleSagaReply`, `SweepSagaTimeouts`, `GetOrder`, `ListOrders`.
-- [ ] **P10.3 Persistence / transport** — bun repositories, migrations, `proto/order/v1`, `order.saga.replies` consumer, sweeper job, gateway routes, events `order.order.confirmed|cancelled`.
+- [x] **P10.1 Domain** — `Order` aggregate + status guard, `CheckoutSaga` pure state machine (`OnReply`, `OnTimeout`), command builders.
+- [x] **P10.2 Use cases** — `ReviewCheckout` (catalog re-price + discount calc), `PlaceOrder` (idempotency), `HandleSagaReply`, `SweepSagaTimeouts`, `GetOrder`, `ListOrders`.
+- [x] **P10.3 Persistence / transport** — bun repositories, migrations, `proto/order/v1`, `order.saga.replies` consumer, sweeper job, gateway routes, events `order.order.confirmed|cancelled`.
 
 | # | Acceptance | Expectation |
 |---|---|---|

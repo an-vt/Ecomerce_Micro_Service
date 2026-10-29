@@ -31,6 +31,7 @@ import (
 	catalogv1 "github.com/an-vt/ecom/proto/gen/go/catalog/v1"
 	discountv1 "github.com/an-vt/ecom/proto/gen/go/discount/v1"
 	inventoryv1 "github.com/an-vt/ecom/proto/gen/go/inventory/v1"
+	orderv1 "github.com/an-vt/ecom/proto/gen/go/order/v1"
 )
 
 // Run starts the gateway and blocks until ctx is cancelled or the server fails.
@@ -84,6 +85,11 @@ func Run(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 	defer func() { _ = discountConn.Close() }()
+	orderConn, err := dial("order", cfg.OrderAddr)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = orderConn.Close() }()
 	authClient, rbacClient := authv1.NewAuthServiceClient(authConn), authv1.NewRbacServiceClient(authConn)
 	catalogConn, err := dial("catalog", cfg.CatalogAddr)
 	if err != nil {
@@ -116,7 +122,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 	}, cfg.GrantsCacheTTL, clock.System{})
 
 	router := transport.NewRouter(transport.Options{
-		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient, Catalog: catalogv1.NewCatalogServiceClient(catalogConn), Inventory: inventoryv1.NewInventoryServiceClient(inventoryConn), Cart: cartv1.NewCartServiceClient(cartConn), Discount: discountv1.NewDiscountServiceClient(discountConn)},
+		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient, Catalog: catalogv1.NewCatalogServiceClient(catalogConn), Inventory: inventoryv1.NewInventoryServiceClient(inventoryConn), Cart: cartv1.NewCartServiceClient(cartConn), Discount: discountv1.NewDiscountServiceClient(discountConn), Order: orderv1.NewOrderServiceClient(orderConn)},
 		Verifier:  verifier, Denylist: redisx.NewDenylist(rdb, "auth:revoked:"), Limiter: redisx.NewLimiter(rdb, "rl:"),
 		APICache: redisx.NewCache(rdb, "apikey:"), Grants: grants, Metrics: m, IDs: idgen.ULID{},
 		Checks: map[string]httpx.Check{

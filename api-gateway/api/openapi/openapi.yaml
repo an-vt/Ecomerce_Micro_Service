@@ -330,3 +330,31 @@ paths:
       security: [{ apiKey: [], bearerAuth: [] }]
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [code, shopId, products], properties: { code: { type: string }, shopId: { type: string }, products: { type: array, items: { type: object, required: [productId, quantity], properties: { productId: { type: string }, price: { type: integer }, quantity: { type: integer } } } } } } } } }
       responses: { '200': { $ref: '#/components/responses/Ok' }, '422': { $ref: '#/components/responses/Error' } }
+  /v1/api/checkout/review:
+    post:
+      tags: [orders]
+      summary: Re-price a checkout from the catalog and preview its discounts (writes nothing)
+      security: [{ apiKey: [], bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [shop_order_ids], properties: { shop_order_ids: { type: array, items: { type: object, required: [shopId, item_products], properties: { shopId: { type: string }, shop_discounts: { type: array, maxItems: 1, items: { type: object, required: [codeId], properties: { codeId: { type: string } } } }, item_products: { type: array, items: { type: object, required: [productId, quantity], properties: { productId: { type: string }, quantity: { type: integer, minimum: 1 } } } } } } } } } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '404': { $ref: '#/components/responses/Error' }, '422': { $ref: '#/components/responses/Error' } }
+  /v1/api/orders:
+    post:
+      tags: [orders]
+      summary: Place an order. Accepted (202) and processed asynchronously by the checkout saga; poll GET /orders/{orderId}
+      security: [{ apiKey: [], bearerAuth: [] }]
+      parameters: [{ name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 128 }, description: 'The same key with the same request returns the same order; with a different request it is 409' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [shop_order_ids, shipping, payment], properties: { shop_order_ids: { type: array, items: { type: object, required: [shopId, item_products], properties: { shopId: { type: string }, shop_discounts: { type: array, maxItems: 1, items: { type: object, properties: { codeId: { type: string } } } }, item_products: { type: array, items: { type: object, required: [productId, quantity], properties: { productId: { type: string }, quantity: { type: integer } } } } } } }, shipping: { type: object, required: [address], properties: { name: { type: string }, phone: { type: string }, address: { type: string }, city: { type: string } } }, payment: { type: object, required: [method, token], properties: { method: { type: string, example: card }, token: { type: string, description: 'Provider token. The mock provider understands tok_ok, tok_fail and tok_timeout' } } } } } } } }
+      responses: { '202': { $ref: '#/components/responses/Ok' }, '400': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
+    get:
+      tags: [orders]
+      summary: The caller's orders, newest first
+      security: [{ apiKey: [], bearerAuth: [] }]
+      parameters: [{ name: page, in: query, schema: { type: integer } }, { name: limit, in: query, schema: { type: integer } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+  /v1/api/orders/{orderId}:
+    get:
+      tags: [orders]
+      summary: One of the caller's orders (PENDING -> ... -> CONFIRMED, or CANCELLED with order_cancelReason)
+      security: [{ apiKey: [], bearerAuth: [] }]
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '404': { $ref: '#/components/responses/Error' } }
