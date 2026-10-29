@@ -34,6 +34,7 @@ import (
 	"github.com/an-vt/ecom/platform-go/rbac"
 	"github.com/an-vt/ecom/platform-go/redisx"
 	authv1 "github.com/an-vt/ecom/proto/gen/go/auth/v1"
+	cartv1 "github.com/an-vt/ecom/proto/gen/go/cart/v1"
 	catalogv1 "github.com/an-vt/ecom/proto/gen/go/catalog/v1"
 	inventoryv1 "github.com/an-vt/ecom/proto/gen/go/inventory/v1"
 )
@@ -298,6 +299,53 @@ func (s *inventoryStub) GetStock(ctx context.Context, in *inventoryv1.GetStockRe
 	return &inventoryv1.Stock{ProductId: in.GetProductId(), Stock: 7, Reserved: 2}, nil
 }
 
+type cartStub struct {
+	cartv1.UnimplementedCartServiceServer
+	mu        sync.Mutex
+	last      metadata.MD
+	addReq    *cartv1.AddToCartRequest
+	updateReq *cartv1.UpdateCartRequest
+	fail      error
+}
+
+func (s *cartStub) enter(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.last, _ = metadata.FromIncomingContext(ctx)
+	return grpcx.ToStatus(s.fail)
+}
+
+func (s *cartStub) AddToCart(ctx context.Context, in *cartv1.AddToCartRequest) (*cartv1.Cart, error) {
+	if err := s.enter(ctx); err != nil {
+		return nil, err
+	}
+	s.addReq = in
+	return &cartv1.Cart{Id: "c1", UserId: "u1", State: "active", CountProduct: 1, Total: 2000,
+		Items: []*cartv1.CartItem{{ProductId: in.GetProductId(), Quantity: in.GetQuantity(), Price: 1000}}}, nil
+}
+
+func (s *cartStub) UpdateCart(ctx context.Context, in *cartv1.UpdateCartRequest) (*cartv1.Cart, error) {
+	if err := s.enter(ctx); err != nil {
+		return nil, err
+	}
+	s.updateReq = in
+	return &cartv1.Cart{Id: "c1", CountProduct: int64(len(in.GetLines()))}, nil
+}
+
+func (s *cartStub) RemoveItem(ctx context.Context, in *cartv1.RemoveItemRequest) (*cartv1.Cart, error) {
+	if err := s.enter(ctx); err != nil {
+		return nil, err
+	}
+	return &cartv1.Cart{Id: "c1"}, nil
+}
+
+func (s *cartStub) GetCart(ctx context.Context, _ *cartv1.GetCartRequest) (*cartv1.Cart, error) {
+	if err := s.enter(ctx); err != nil {
+		return nil, err
+	}
+	return &cartv1.Cart{Id: "c1", UserId: "u1", State: "active"}, nil
+}
+
 type rbacStub struct {
 	authv1.UnimplementedRbacServiceServer
 	grants     func() ([]*authv1.RoleGrant, error)
@@ -349,6 +397,7 @@ type gw struct {
 	rbac      *rbacStub
 	catalog   *catalogStub
 	inventory *inventoryStub
+	cart      *cartStub
 	mr        *miniredis.Miniredis
 	signer    *jwtx.Signer
 	clk       *clock.Fixed
@@ -372,7 +421,7 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	for _, m := range mut {
 		m(&o)
 	}
-	g := &gw{t: t, auth: &authStub{}, rbac: &rbacStub{}, catalog: &catalogStub{}, inventory: &inventoryStub{}, clk: clock.NewFixed(time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)), metrics: metrics.New()}
+	g := &gw{t: t, auth: &authStub{}, rbac: &rbacStub{}, catalog: &catalogStub{}, inventory: &inventoryStub{}, cart: &cartStub{}, clk: clock.NewFixed(time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)), metrics: metrics.New()}
 
 	lis := bufconn.Listen(1 << 20)
 	srv := grpc.NewServer()
@@ -380,6 +429,7 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	authv1.RegisterRbacServiceServer(srv, g.rbac)
 	catalogv1.RegisterCatalogServiceServer(srv, g.catalog)
 	inventoryv1.RegisterInventoryServiceServer(srv, g.inventory)
+	cartv1.RegisterCartServiceServer(srv, g.cart)
 	go func() { _ = srv.Serve(lis) }()
 	g.stop = srv.Stop
 	t.Cleanup(srv.Stop)
@@ -393,6 +443,7 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	authClient, rbacClient := authv1.NewAuthServiceClient(conn), authv1.NewRbacServiceClient(conn)
 	catalogClient := catalogv1.NewCatalogServiceClient(conn)
 	inventoryClient := inventoryv1.NewInventoryServiceClient(conn)
+	cartClient := cartv1.NewCartServiceClient(conn)
 
 	g.mr = miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: g.mr.Addr(), ReadTimeout: 300 * time.Millisecond, DialTimeout: 300 * time.Millisecond,
@@ -425,7 +476,7 @@ func newGateway(t *testing.T, mut ...func(*gwOpts)) *gw {
 	}
 
 	g.engine = transport.NewRouter(transport.Options{
-		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient, Catalog: catalogClient, Inventory: inventoryClient},
+		Upstreams: transport.Upstreams{Auth: authClient, Rbac: rbacClient, Catalog: catalogClient, Inventory: inventoryClient, Cart: cartClient},
 		Verifier:  verifier, Denylist: redisx.NewDenylist(rdb, "auth:revoked:"), Limiter: redisx.NewLimiter(rdb, "rl:"),
 		APICache: redisx.NewCache(rdb, "apikey:"), Grants: grants, Metrics: g.metrics, IDs: nil,
 		CORSOrigins: o.corsOrigins, CookieSecure: false, CookieTTL: 7 * 24 * time.Hour,

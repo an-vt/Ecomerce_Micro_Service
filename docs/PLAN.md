@@ -132,7 +132,7 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 - [x] **P4.1 Bootstrap** — Gin engine, recovery, request id, access log, CORS, security headers, body limit, cookie handling, OpenAPI file served at `/docs`, error → envelope, ops endpoints.
 - [x] **P4.2 Middleware** — `APIKey` (Redis-cached), `JWT` (JWKS cache, `kid` refresh, denylist), `RBAC` (`Rbac("readAny","profile")`), `ShopOnly` / `UserOnly`, rate limit.
 - [x] **P4.3 gRPC clients** — one client per upstream through the breaker interceptor; principal metadata injection; breaker open → 503 + `Retry-After`.
-- [ ] **P4.4 Handlers** *(auth / rbac / profile / catalog / comment / inventory done; cart, discount, orders, notification come with their phases)* — auth (shop / user / rbac / profile) in this phase; catalog, inventory, cart, discount, checkout / orders, notification added in P5–P11.
+- [ ] **P4.4 Handlers** *(auth / rbac / profile / catalog / comment / inventory / cart done; discount, orders, notification come with their phases)* — auth (shop / user / rbac / profile) in this phase; catalog, inventory, cart, discount, checkout / orders, notification added in P5–P11.
 - [x] **P4.5 Infra** — `api-gateway/infra/local`.
 
 ### Acceptance (integration, stub gRPC servers)
@@ -189,8 +189,8 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 
 ## P7 — cart-service
 
-- [ ] **P7.1 Domain / use cases** — `Cart` (add, update diff, remove, quantity 0 removes), `AddToCart` (catalog price snapshot + `CheckStock`), `UpdateCart`, `RemoveItem`, `GetCart`, `ClearOrderedItems`.
-- [ ] **P7.2 Persistence / transport** — Mongo repository, migrations, `proto/cart/v1`, `order.order.confirmed` consumer, gateway routes.
+- [x] **P7.1 Domain / use cases** — `Cart` (add, update diff, remove, quantity 0 removes), `AddToCart` (catalog price snapshot + `CheckStock`), `UpdateCart`, `RemoveItem`, `GetCart`, `ClearOrderedItems`.
+- [x] **P7.2 Persistence / transport** — Mongo repository, migrations, `proto/cart/v1`, `order.order.confirmed` consumer, gateway routes.
 
 | # | Acceptance | Expectation |
 |---|---|---|

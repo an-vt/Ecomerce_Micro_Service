@@ -15,6 +15,7 @@ import (
 	"github.com/an-vt/ecom/platform-go/rbac"
 	"github.com/an-vt/ecom/platform-go/redisx"
 	authv1 "github.com/an-vt/ecom/proto/gen/go/auth/v1"
+	cartv1 "github.com/an-vt/ecom/proto/gen/go/cart/v1"
 	catalogv1 "github.com/an-vt/ecom/proto/gen/go/catalog/v1"
 	inventoryv1 "github.com/an-vt/ecom/proto/gen/go/inventory/v1"
 )
@@ -25,6 +26,7 @@ type Upstreams struct {
 	Rbac      authv1.RbacServiceClient
 	Catalog   catalogv1.CatalogServiceClient
 	Inventory inventoryv1.InventoryServiceClient
+	Cart      cartv1.CartServiceClient
 }
 
 // Options is everything NewRouter needs.
@@ -137,5 +139,12 @@ func NewRouter(o Options) *gin.Engine {
 	iv := v1.Group("/inventory")
 	iv.POST("", authed, shopOnlyGuard(), inv.addStock)
 	iv.GET("/:productId", inv.get)
+
+	crt := &Cart{client: o.Cart}
+	cr := v1.Group("/cart", authed, userOnly())
+	cr.POST("", crt.add)
+	cr.POST("/update", crt.update)
+	cr.DELETE("", crt.remove)
+	cr.GET("", crt.get)
 	return r
 }

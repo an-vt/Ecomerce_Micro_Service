@@ -270,3 +270,28 @@ paths:
       summary: Stock of a product (available and held)
       parameters: [{ name: productId, in: path, required: true, schema: { type: string } }]
       responses: { '200': { $ref: '#/components/responses/Ok' }, '404': { $ref: '#/components/responses/Error' } }
+  /v1/api/cart:
+    get:
+      tags: [cart]
+      summary: The caller's cart
+      security: [{ apiKey: [], bearerAuth: [] }]
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '403': { $ref: '#/components/responses/Error' } }
+    post:
+      tags: [cart]
+      summary: Add a product to the caller's cart (price and name are snapshotted; stock is checked)
+      security: [{ apiKey: [], bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [product], properties: { product: { type: object, required: [productId, quantity], properties: { productId: { type: string }, quantity: { type: integer, minimum: 1 } } } } } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '404': { $ref: '#/components/responses/Error' }, '422': { $ref: '#/components/responses/Error' } }
+    delete:
+      tags: [cart]
+      summary: Remove a product from the caller's cart
+      security: [{ apiKey: [], bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [productId], properties: { productId: { type: string } } } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+  /v1/api/cart/update:
+    post:
+      tags: [cart]
+      summary: Set several lines to absolute quantities (0 removes); all or nothing
+      security: [{ apiKey: [], bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [shop_order_ids], properties: { shop_order_ids: { type: array, items: { type: object, properties: { shopId: { type: string }, item_products: { type: array, items: { type: object, required: [productId], properties: { productId: { type: string }, shopId: { type: string }, quantity: { type: integer }, old_quantity: { type: integer } } } } } } } } } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '409': { $ref: '#/components/responses/Error' }, '422': { $ref: '#/components/responses/Error' } }

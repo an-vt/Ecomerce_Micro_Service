@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package ecom.cart.v1;
+
+// The buyer's cart (docs/05-api-design.md §2). The buyer is always the caller in the forwarded principal; a user id
+// never appears in a request.
+service CartService {
+  rpc AddToCart(AddToCartRequest) returns (Cart);
+  rpc UpdateCart(UpdateCartRequest) returns (Cart);
+  rpc RemoveItem(RemoveItemRequest) returns (Cart);
+  rpc GetCart(GetCartRequest) returns (Cart);
+}
+
+message CartItem {
+  string product_id = 1;
+  string shop_id = 2;
+  string name = 3;
+  int64 price = 4; // snapshot taken when the line was added
+  int64 quantity = 5;
+}
+
+message Cart {
+  string id = 1;
+  string user_id = 2;
+  string state = 3;
+  repeated CartItem items = 4;
+  int64 count_product = 5; // number of lines
+  int64 total = 6;         // sum of price * quantity
+  string updated_at = 7;
+}
+
+message AddToCartRequest {
+  string product_id = 1;
+  int64 quantity = 2;
+}
+
+message UpdateLine {
+  string product_id = 1;
+  string shop_id = 2;
+  int64 quantity = 3;     // the new absolute quantity; 0 removes the line
+  int64 old_quantity = 4; // what the client believes is in the cart now; checked when > 0
+}
+
+message UpdateCartRequest {
+  repeated UpdateLine lines = 1;
+}
+
+message RemoveItemRequest {
+  string product_id = 1;
+}
+
+message GetCartRequest {}

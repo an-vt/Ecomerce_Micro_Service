@@ -223,3 +223,28 @@ func WaitForReply(t testing.TB, orderID, typ string, into any) {
 		}
 	}
 }
+
+// PublishEvent publishes a domain event envelope (what a service's outbox relay would) to topic, keyed by key.
+// Used to play the part of a service that does not exist yet.
+func PublishEvent(t testing.TB, topic, key, typ string, payload any) {
+	t.Helper()
+	brokers := strings.Split(Env("KAFKA_BROKERS", "127.0.0.1:9094"), ",")
+	p, err := kafkax.NewProducer(brokers)
+	if err != nil {
+		t.Fatalf("kafka producer: %v", err)
+	}
+	defer p.Close()
+	env, err := event.NewEnvelope(fmt.Sprintf("e2e-%d", time.Now().UnixNano()), typ, key, key, time.Now(), payload)
+	if err != nil {
+		t.Fatalf("envelope: %v", err)
+	}
+	raw, err := env.Marshal()
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := p.Publish(ctx, kafkax.Message{Topic: topic, Key: key, Value: raw}); err != nil {
+		t.Fatalf("publish %s: %v", typ, err)
+	}
+}
