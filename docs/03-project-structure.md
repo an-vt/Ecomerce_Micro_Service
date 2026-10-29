@@ -118,7 +118,7 @@ err := uc.tx.WithinTx(ctx, func(ctx context.Context) error {
 | `mongox` | client open, `TxManager`, `DB(ctx)`, error helpers (`IsDuplicateKey`), otel monitor |
 | `redisx` | go-redis client, `SetNX`, fixed-window rate limiter, cache helpers |
 | `kafkax` | franz-go producer (idempotent) and consumer runner (manual commit, retry, DLQ, `kotel` tracing), topic constants |
-| `outbox` | `Writer.Add(ctx, msgs…)`, `Relay` (PG: `FOR UPDATE SKIP LOCKED`; Mongo: lease claim), purge job |
+| `outbox` | `Message`, `Writer`, `Relay` (storage-agnostic loop); `outbox/pgoutbox` and `outbox/mongooutbox` hold the stores, writers, inbox guards and the `CreateTables` / `CreateCollections` migrations |
 | `inbox` | `Guard.Once(ctx, consumer, messageID, fn)` |
 | `database/migration` | Laravel-style migration engine (generic), `pgmigrate` (PostgreSQL store + registry), `mongomigrate` (MongoDB store + registry) (§4) |
 | `database/seeder` | seeder registry (`DatabaseSeeder` entry point, `Call`, `--class`) |

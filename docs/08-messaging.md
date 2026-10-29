@@ -65,10 +65,10 @@ A relay in each service publishes pending rows:
 
 | Store | Claim strategy |
 |---|---|
-| PostgreSQL | `SELECT … FROM outbox_messages WHERE status='PENDING' AND available_at <= now() ORDER BY created_at LIMIT 100 FOR UPDATE SKIP LOCKED` in a short transaction; produce batch (`acks: -1`, idempotent producer); `UPDATE status='SENT'`. On produce error: `attempts+1`, `available_at = now() + backoff`. |
-| MongoDB | `findOneAndUpdate({status:'PENDING', availableAt ≤ now, $or:[{lockedUntil ≤ now},{lockedUntil:null}]}, {$set:{lockedUntil: now+30s, lockOwner}})` repeated up to the batch size; produce; mark `SENT`. (`mongo-driver/v2`) |
+| PostgreSQL | In one transaction: `pg_try_advisory_xact_lock` (only one relay replica is active at a time — parallel claiming could reorder two messages of one aggregate), then `SELECT … WHERE status='PENDING' AND available_at <= now() ORDER BY created_at LIMIT 100 FOR UPDATE SKIP LOCKED`; produce the batch (`acks=all`, idempotent producer); `UPDATE status='SENT'`; commit. On a produce error: `attempts+1`, `available_at = now() + backoff`, and later messages of the same key wait. |
+| MongoDB | A lease document in `outbox_lease` (15 s, renewed every poll, taken over when expired) elects the active relay; it reads the due messages in `created_at` order, produces, and marks them `SENT`. (`mongo-driver/v2`) |
 
-Relay polls every 200 ms (`OUTBOX_POLL_MS`); sent rows older than 7 days are purged. Metrics: `outbox_pending`, `outbox_oldest_age_seconds`, `outbox_published_total`, `outbox_publish_errors_total`.
+The relay polls every 200 ms (`OUTBOX_POLL_MS`) and goes straight on when a batch was full; sent rows older than 7 days are purged hourly. The producer continues the trace stored in the row (`traceparent` header) and the bookkeeping writes survive a shutdown, so a message that reached Kafka is not published twice. Metrics: `outbox_pending`, `outbox_oldest_age_seconds`, `outbox_published_total`, `outbox_publish_errors_total`.
 
 Ordering: messages for one aggregate are inserted in commit order and the relay sorts by `created_at`; with a single relay per service per poll the per-key order is kept. Duplicates are possible (crash between produce and mark) and are handled by the inbox.
 

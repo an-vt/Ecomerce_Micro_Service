@@ -32,7 +32,10 @@ test-integration: ## unit + integration tests (testcontainers, needs Docker)
 test-e2e: ## e2e tests against the running stack (make start first)
 	cd e2e && E2E_REQUIRED=1 go test -count=1 -tags=e2e -p 1 ./...
 
-cover: ## unit tests + per-module coverage table, fails under 80%
+cover: ## unit + integration coverage (needs Docker), fails under 80% — what CI runs
+	COVER_INTEGRATION=1 ./scripts/coverage.sh
+
+cover-unit: ## unit-test coverage only (no Docker; database code is covered by integration tests)
 	./scripts/coverage.sh
 
 gen-proto: ## regenerate gRPC code with buf into proto/gen/go
@@ -62,4 +65,4 @@ seed: ## run seeders of every running service
 new-service: ## scaffold a service: NAME= SHORT= HTTP= GRPC= DB=pg|mongo|none
 	./tools/newservice/new-service.sh NAME=$(NAME) SHORT=$(SHORT) HTTP=$(HTTP) GRPC=$(GRPC) DB=$(DB)
 
-.PHONY: help fmt vet lint tidy tidy-check test test-integration test-e2e cover gen-proto gen-keys check-infra start stop status migrate seed new-service
+.PHONY: help fmt vet lint tidy tidy-check test test-integration test-e2e cover cover-unit gen-proto gen-keys check-infra start stop status migrate seed new-service

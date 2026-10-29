@@ -23,7 +23,7 @@ Rules: no network, no Docker, no `time.Sleep` (inject `clock.Clock`).
 
 ### 1.1 Coverage gate (≥ 80 %)
 
-`scripts/coverage.sh` runs `go test -race -coverprofile` for every module and computes the total of the module's `internal/` (or the library's) packages **excluding** code that is wiring or generated:
+`scripts/coverage.sh` (`make cover`, with `COVER_INTEGRATION=1`; `make cover-unit` for the Docker-free subset) runs `go test -race -coverprofile` for every module and computes the total of the module's `internal/` (or the library's) packages **excluding** code that is wiring or generated:
 
 ```
 excluded: cmd/**  internal/app/**  internal/database/migrations/**  internal/database/seeders/**

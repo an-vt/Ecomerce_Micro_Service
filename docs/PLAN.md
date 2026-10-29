@@ -84,11 +84,11 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 - [x] **P2.2 Config & logger** — env + `_FILE` loading with validation; slog JSON handler with redaction and trace fields.
 - [x] **P2.3 Observability** — `otel.Init`, `metrics` registry + standard metrics, `httpx` ops server (`/health/*`, `/metrics`).
 - [x] **P2.4 Breaker + grpcx** — `breaker` registry (gobreaker v2, failure classifier, state gauge); gRPC server / client bootstrap with interceptors (deadline, tracing, logging, metrics, error mapping, principal metadata, breaker, read retries).
-- [ ] **P2.5 Databases** *(pgdb done; mongox, redisx pending)* — `pgdb` (bun open, `TxManager`, `DB(ctx)`, `bunotel`), `mongox` (client, `TxManager`, otel), `redisx`.
-- [ ] **P2.6 Laravel-style migrations** *(engine, console, seeders, PostgreSQL store done; Mongo store pending)* — `database/migration` (registry, runner, batches, advisory lock, per-migration tx, `--pretend`, status, rollback, fresh), `database/seeder`, `console` command framework shared by all services, generator for `make:migration` / `make:seeder`.
-- [ ] **P2.7 Messaging** — `kafkax` producer + `ConsumerRunner` (manual commit, retry/backoff, DLQ, non-retryable errors, `kotel`); `outbox` (PG + Mongo writers and relays); `inbox` (PG + Mongo).
-- [ ] **P2.8 Security helpers** — `jwtx` (RS256 sign/verify, JWKS), `rbac` evaluator.
-- [ ] **P2.9 `testkit`** *(PostgreSQL container done; Mongo / Kafka / Redis pending)* — container singletons, fresh DB per test, `MigrateUp`, topic suffix, fakes, in-process gRPC helper; `e2ekit`.
+- [x] **P2.5 Databases** — `pgdb` (bun open, `TxManager`, `DB(ctx)`, `bunotel`), `mongox` (client, `TxManager`, otel), `redisx`.
+- [x] **P2.6 Laravel-style migrations** — `database/migration` (registry, runner, batches, advisory lock, per-migration tx, `--pretend`, status, rollback, fresh), `database/seeder`, `console` command framework shared by all services, generator for `make:migration` / `make:seeder`.
+- [x] **P2.7 Messaging** — `kafkax` producer + `ConsumerRunner` (manual commit, retry/backoff, DLQ, non-retryable errors, `kotel`); `outbox` (PG + Mongo writers and relays); `inbox` (PG + Mongo).
+- [x] **P2.8 Security helpers** — `jwtx` (RS256 sign/verify, JWKS), `rbac` evaluator.
+- [x] **P2.9 `testkit`** — container singletons (Postgres, Mongo replica set, Kafka, Redis), fresh DB per test, `CreateTopics`, `ConsumeN`, `Suffix`. (`e2ekit` comes with P14.)
 
 ### Acceptance (integration)
 | # | Scenario | Expectation |
