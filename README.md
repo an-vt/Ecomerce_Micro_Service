@@ -27,14 +27,48 @@ REST outside, **gRPC** inside, **Kafka** for events and saga messages, PostgreSQ
 
 ## Quick start
 
+Requirements: Go ≥ 1.26, Docker (with Compose), `buf`, `golangci-lint`, `openssl`, `python3`.
+
 ```bash
-make start      # shared infra + every implemented service (needs Docker)
-make status     # health table
-make test       # unit tests (-race)
-make cover      # coverage table, fails under 80 %
-make test-integration   # testcontainers
-make test-e2e           # against the running stack
+make start      # RS256 keys, shared infra (+ observability), the nine services, seed data; takes a few minutes the first time
+make status     # health table with every URL
+```
+
+Then:
+
+| What | URL |
+|---|---|
+| REST API · OpenAPI docs | http://localhost:8088/v1/api · http://localhost:8088/docs |
+| Grafana (admin / admin) | http://localhost:3001 — six dashboards in the *Ecom* folder |
+| Prometheus · Alertmanager | http://localhost:9090 · http://localhost:9093 |
+| Kafka UI · Mailpit | http://localhost:8080 · http://localhost:8025 |
+
+Every call needs the API key (`x-api-key: dev-api-key-change-me`, seeded). A checkout, end to end:
+
+```bash
+KEY=dev-api-key-change-me; API=http://localhost:8088/v1/api
+curl -s -H "x-api-key: $KEY" -H 'content-type: application/json' -d '{"name":"Acme","email":"shop@example.com","password":"correct-horse"}' $API/shop/signup   # -> shop tokens
+# create + publish a product, then as a buyer: POST /user/new_user, open the link in Mailpit, add to /cart, POST /checkout/review,
+# POST /orders (header Idempotency-Key) -> 202, then poll GET /orders/:id until CONFIRMED or CANCELLED
+```
+
+`e2e/order_e2e_test.go` is that walk-through as code.
+
+## Testing
+
+```bash
+make lint               # golangci-lint on every module, incl. the DDD layering rules (depguard)
+make test               # unit tests, -race, no Docker
+make test-integration   # testcontainers: real PostgreSQL, MongoDB, Kafka, Redis
+make cover              # unit + integration coverage per module, fails under 80 %
+make test-e2e           # black-box scenarios against the running stack (make start first)
+make check-infra        # compose files, Prometheus / Alertmanager config, alert rules, dashboards
 make help
 ```
 
-Requirements: Go ≥ 1.26, Docker, `buf`, `golangci-lint`.
+The e2e suite (`e2e/`) covers the scenarios of [docs/10](docs/10-testing.md#3-end-to-end-tests), including a service killed
+mid-checkout (SIGTERM must lose and duplicate nothing), an open circuit breaker answering 503 fast and recovering, and one
+checkout found as a single trace across seven services in Tempo. CI (`.github/workflows/ci.yml`) runs `verify` on every push
+and `e2e` against the full stack after it.
+
+`make stop` stops everything (`VOLUMES=1` also wipes the data). `make dashboards` regenerates the Grafana dashboards.

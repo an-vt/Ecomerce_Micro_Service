@@ -286,7 +286,7 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 
 ## P14 — E2E & hardening
 
-- [ ] **P14.1** `e2e/` suites for the ten scenarios in [10 §3](10-testing.md#3-end-to-end-tests).
-- [ ] **P14.2** `scripts/coverage.sh` prints a per-module table and fails under 80 %.
-- [ ] **P14.3** Graceful-shutdown test (SIGTERM during consume).
-- [ ] **P14.4** CI workflow complete; README quick start verified from a clean checkout.
+- [x] **P14.1** `e2e/` suites for the ten scenarios in [10 §3](10-testing.md#3-end-to-end-tests).
+- [x] **P14.2** `scripts/coverage.sh` prints a per-module table and fails under 80 %.
+- [x] **P14.3** Graceful-shutdown test (SIGTERM during consume).
+- [x] **P14.4** CI workflow complete; README quick start verified from a clean checkout.

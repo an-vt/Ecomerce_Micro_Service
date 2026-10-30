@@ -1,0 +1,61 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: lint, unit + integration tests, coverage gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: "**/go.sum"
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+          install-only: true
+      - name: Generated code is up to date
+        run: |
+          go install github.com/bufbuild/buf/cmd/buf@latest
+          make gen-proto
+          git diff --exit-code -- proto/gen || (echo "proto/gen is stale: run make gen-proto and commit" && exit 1)
+      - name: go.mod files are tidy
+        run: make tidy-check
+      - name: Lint (golangci-lint incl. depguard layering) and vet
+        run: make lint
+      - name: Unit + integration tests with the 80 % coverage gate (testcontainers; Docker is on the runner)
+        run: COVER_INTEGRATION=1 make cover
+      - name: Compose files, Prometheus / Alertmanager config, alert rules, dashboards
+        run: make check-infra
+
+  e2e:
+    name: end-to-end against the full stack
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: "**/go.sum"
+      - name: Start the stack (shared infra, observability, every service) and seed it
+        run: make start
+      - name: End-to-end scenarios
+        run: make test-e2e
+      - name: Logs of the services when a step failed
+        if: failure()
+        run: |
+          for c in $(docker ps -a --format '{{.Names}}' | grep '^ecom-'); do echo "::group::$c"; docker logs --tail 80 "$c" 2>&1; echo "::endgroup::"; done
+      - name: Stop
+        if: always()
+        run: make stop VOLUMES=1
