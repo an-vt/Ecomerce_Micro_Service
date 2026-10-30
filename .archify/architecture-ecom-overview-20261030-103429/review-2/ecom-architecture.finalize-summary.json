@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "/Users/an/dev/NodeJS_Workspace/Ecomerce_Micro_Service/.archify/architecture-ecom-overview-20261030-103429/candidate.json",
+    "sha256": "d668a0a9dc114a97c51e915fefb4be6e7032bd41d93ce035b13d92af1c04b9a0",
+    "bytes": 14751
+  },
+  "artifact": {
+    "path": "/Users/an/dev/NodeJS_Workspace/Ecomerce_Micro_Service/.archify/architecture-ecom-overview-20261030-103429/ecom-architecture.html",
+    "sha256": "0ce14fd8d1d23a21009bab9f6a2d9e2a6a5b3cb7ac713b116ff8f6cb9547dcf4",
+    "bytes": 879921
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/Users/an/dev/NodeJS_Workspace/Ecomerce_Micro_Service/.archify/architecture-ecom-overview-20261030-103429/review-2/ecom-architecture.finalize.json",
+    "summaryReceipt": "/Users/an/dev/NodeJS_Workspace/Ecomerce_Micro_Service/.archify/architecture-ecom-overview-20261030-103429/review-2/ecom-architecture.finalize-summary.json",
+    "browserCheckReceipt": "/Users/an/dev/NodeJS_Workspace/Ecomerce_Micro_Service/.archify/architecture-ecom-overview-20261030-103429/review-2/ecom-architecture.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-30T03:35:21.668Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 3621,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  },
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "resolvedCrossovers": 2,
+      "routesOverSuggestedBends": 2
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [
+        {
+          "left": {
+            "id": "gateway-discount",
+            "from": "gateway",
+            "to": "discount",
+            "label": "gRPC",
+            "collectionIndex": 7,
+            "artifactIndex": 8
+          },
+          "right": {
+            "id": "order-catalog",
+            "from": "order",
+            "to": "catalog",
+            "label": "gRPC review",
+            "collectionIndex": 14,
+            "artifactIndex": 15
+          },
+          "point": [
+            1036,
+            302
+          ]
+        },
+        {
+          "left": {
+            "id": "kafka-order",
+            "from": "kafka",
+            "to": "order",
+            "label": "saga.replies",
+            "collectionIndex": 27,
+            "artifactIndex": 28
+          },
+          "right": {
+            "id": "kafka-notification",
+            "from": "kafka",
+            "to": "notification",
+            "label": "6 event topics",
+            "collectionIndex": 28,
+            "artifactIndex": 29
+          },
+          "point": [
+            1428,
+            447
+          ],
+          "sharedNode": "kafka"
+        }
+      ],
+      "detours": [
+        {
+          "relationship": {
+            "id": "order-discount",
+            "from": "order",
+            "to": "discount",
+            "label": "gRPC",
+            "collectionIndex": 13,
+            "artifactIndex": 14
+          },
+          "bends": 3,
+          "stretch": 1.308
+        },
+        {
+          "relationship": {
+            "id": "kafka-order",
+            "from": "kafka",
+            "to": "order",
+            "label": "saga.replies",
+            "collectionIndex": 27,
+            "artifactIndex": 28
+          },
+          "bends": 4,
+          "stretch": 1.207
+        }
+      ],
+      "truncated": false
+    },
+    "hints": [
+      "gateway → discount crosses order → catalog: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "kafka → order and kafka → notification cross next to kafka: move node order or notification so the two reach kafka from different sides (for example one level with it, one directly above or below it).",
+      "order → discount needs 3 bends: move node order or discount so they share a row or column with matching centers, or sit diagonally with a clear corner.",
+      "kafka → order needs 4 bends: move node kafka or order so they share a row or column with matching centers, or sit diagonally with a clear corner."
+    ],
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+  }
+}

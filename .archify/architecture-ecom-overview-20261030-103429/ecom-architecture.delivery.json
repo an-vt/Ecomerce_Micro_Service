@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "5c4f4e40-bbd5-4ee5-aef6-02b1ec9f156b",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/an/dev/NodeJS_Workspace/Ecomerce_Micro_Service/.archify/architecture-ecom-overview-20261030-103429/candidate.json",
+  "output": "/Users/an/dev/NodeJS_Workspace/Ecomerce_Micro_Service/.archify/architecture-ecom-overview-20261030-103429/ecom-architecture.html",
+  "specification": {
+    "sha256": "d668a0a9dc114a97c51e915fefb4be6e7032bd41d93ce035b13d92af1c04b9a0",
+    "bytes": 14751
+  },
+  "artifact": {
+    "sha256": "0ce14fd8d1d23a21009bab9f6a2d9e2a6a5b3cb7ac713b116ff8f6cb9547dcf4",
+    "bytes": 879921
+  }
+}

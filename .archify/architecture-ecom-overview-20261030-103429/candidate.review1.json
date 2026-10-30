@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Ecom Microservices Architecture",
+    "output": ".archify/architecture-ecom-overview-20261030-103429/ecom-architecture.html",
+    "quality_profile": "showcase",
+    "locale": "en",
+    "repository": {
+      "url": "https://github.com/an-vt/ecom",
+      "link_mode": "local-only",
+      "revision": "2a15f6d6ea2fe92db7846c06304f0e9747034ee6"
+    }
+  },
+  "components": [
+    { "id": "s3", "type": "cloud", "label": "S3 object store", "sublabel": "product images", "tag": "optional", "pos": [40, 40], "size": [140, 60],
+      "sources": [
+        { "path": "shared-infra/infra/local/docker-compose.yml", "line": 158, "end_line": 176, "label": "ecom-s3" },
+        { "path": "catalog-service/internal/app/app.go", "line": 92, "end_line": 100, "label": "media enabled by config" }
+      ] },
+    { "id": "client", "type": "external", "label": "Buyers & shops", "sublabel": "REST + x-api-key", "pos": [40, 180], "size": [140, 64],
+      "sources": [
+        { "path": "api-gateway/internal/transport/http/router.go", "line": 93, "end_line": 174, "label": "public /v1/api routes" }
+      ] },
+    { "id": "redis", "type": "database", "label": "Redis 7", "sublabel": "keys · denylist · limits", "pos": [824, 40], "size": [140, 60],
+      "sources": [
+        { "path": "shared-infra/infra/local/docker-compose.yml", "line": 70, "end_line": 86, "label": "ecom-redis" },
+        { "path": "api-gateway/internal/app/app.go", "line": 54, "end_line": 99, "label": "denylist, limiter, API-key cache" }
+      ] },
+    { "id": "gateway", "type": "security", "label": "api-gateway (Gin :8088)", "sublabel": "API key · RS256 JWT · RBAC · rate limit · REST → gRPC · one circuit breaker per upstream", "pos": [236, 180], "size": [1316, 64],
+      "sources": [
+        { "path": "api-gateway/internal/app/app.go", "line": 60, "end_line": 115, "label": "breakers, JWKS verifier, router" },
+        { "path": "api-gateway/internal/app/app.go", "line": 131, "end_line": 164, "label": "seven gRPC upstreams" }
+      ] },
+    { "id": "payment", "type": "backend", "label": "payment-service", "sublabel": "PostgreSQL payment_db", "tag": "mock PSP + breaker", "pos": [40, 340], "size": [140, 64],
+      "sources": [
+        { "path": "payment-service/internal/app/app.go", "line": 53, "end_line": 93, "label": "store, mock provider, consumer" }
+      ] },
+    { "id": "auth", "type": "backend", "label": "auth-service", "sublabel": "PostgreSQL auth_db", "pos": [236, 340], "size": [140, 64],
+      "sources": [
+        { "path": "auth-service/internal/app/app.go", "line": 56, "end_line": 101, "label": "store, Redis, outbox relay" }
+      ] },
+    { "id": "inventory", "type": "backend", "label": "inventory-service", "sublabel": "PostgreSQL inventory_db", "pos": [432, 340], "size": [140, 64],
+      "sources": [
+        { "path": "inventory-service/internal/app/app.go", "line": 53, "end_line": 88, "label": "store, outbox, consumer" },
+        { "path": "inventory-service/internal/transport/kafka/kafka.go", "line": 19, "label": "consumed topics" }
+      ] },
+    { "id": "cart", "type": "backend", "label": "cart-service", "sublabel": "MongoDB cart_db", "pos": [628, 340], "size": [140, 64],
+      "sources": [
+        { "path": "cart-service/internal/app/app.go", "line": 57, "end_line": 110, "label": "store, gRPC clients, consumer" },
+        { "path": "cart-service/internal/transport/kafka/kafka.go", "line": 17, "label": "consumes order.confirmed" }
+      ] },
+    { "id": "catalog", "type": "backend", "label": "catalog-service", "sublabel": "MongoDB catalog_db", "pos": [824, 340], "size": [140, 64],
+      "sources": [
+        { "path": "catalog-service/internal/app/app.go", "line": 57, "end_line": 113, "label": "store, SKU cache, outbox" },
+        { "path": "catalog-service/internal/client/media/media.go", "line": 27, "end_line": 66, "label": "presign only" },
+        { "path": "catalog-service/internal/transport/kafka/kafka.go", "line": 18, "label": "consumes shop.registered" }
+      ] },
+    { "id": "discount", "type": "backend", "label": "discount-service", "sublabel": "PostgreSQL discount_db", "pos": [1020, 340], "size": [140, 64],
+      "sources": [
+        { "path": "discount-service/internal/app/app.go", "line": 60, "end_line": 105, "label": "store, catalog client, consumer" },
+        { "path": "discount-service/internal/transport/kafka/kafka.go", "line": 19, "label": "consumes commands" }
+      ] },
+    { "id": "order", "type": "backend", "label": "order-service", "sublabel": "PostgreSQL order_db", "tag": "saga orchestrator", "pos": [1216, 340], "size": [140, 64],
+      "sources": [
+        { "path": "order-service/internal/app/app.go", "line": 63, "end_line": 121, "label": "store, gRPC clients, consumer" },
+        { "path": "order-service/internal/domain/saga.go", "line": 69, "end_line": 134, "label": "checkout saga steps" },
+        { "path": "order-service/internal/transport/kafka/kafka.go", "line": 19, "label": "consumes saga replies" }
+      ] },
+    { "id": "notification", "type": "backend", "label": "notification-service", "sublabel": "MongoDB notification_db", "pos": [1412, 340], "size": [140, 64],
+      "sources": [
+        { "path": "notification-service/internal/app/app.go", "line": 53, "end_line": 97, "label": "store, SMTP sender, consumer" },
+        { "path": "notification-service/internal/transport/kafka/kafka.go", "line": 17, "end_line": 19, "label": "six consumed topics" }
+      ] },
+    { "id": "mailpit", "type": "external", "label": "Mailpit", "sublabel": "SMTP (local)", "pos": [1608, 340], "size": [120, 64],
+      "sources": [
+        { "path": "shared-infra/infra/local/docker-compose.yml", "line": 142, "end_line": 157, "label": "ecom-mailpit" }
+      ] },
+    { "id": "kafka", "type": "messagebus", "label": "Kafka (KRaft)", "sublabel": "domain events · saga commands + replies · every consumed topic has a .dlq", "pos": [40, 540], "size": [1512, 64],
+      "sources": [
+        { "path": "shared-infra/infra/local/docker-compose.yml", "line": 87, "end_line": 128, "label": "ecom-kafka + topic init" },
+        { "path": "platform-go/kafkax/topics.go", "line": 1, "end_line": 22, "label": "topic names" }
+      ] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "internal services · gRPC :91xx · ops :81xx /metrics", "wraps": ["payment", "auth", "inventory", "cart", "catalog", "discount", "order", "notification"] }
+  ],
+  "connections": [
+    { "id": "client-gateway", "from": "client", "to": "gateway", "label": "REST", "variant": "emphasis" },
+    { "id": "client-s3", "from": "client", "to": "s3", "label": "presigned PUT", "variant": "dashed" },
+    { "id": "gateway-redis", "from": "gateway", "to": "redis", "label": "API keys · revoked sessions · rate limit" },
+    { "id": "gateway-auth", "from": "gateway", "to": "auth", "label": "gRPC + JWKS", "variant": "security" },
+    { "id": "gateway-inventory", "from": "gateway", "to": "inventory", "label": "gRPC" },
+    { "id": "gateway-cart", "from": "gateway", "to": "cart", "label": "gRPC" },
+    { "id": "gateway-catalog", "from": "gateway", "to": "catalog", "label": "gRPC" },
+    { "id": "gateway-discount", "from": "gateway", "to": "discount", "label": "gRPC" },
+    { "id": "gateway-order", "from": "gateway", "to": "order", "label": "PlaceOrder", "variant": "emphasis" },
+    { "id": "gateway-notification", "from": "gateway", "to": "notification", "label": "gRPC" },
+    { "id": "cart-inventory", "from": "cart", "to": "inventory", "label": "stock" },
+    { "id": "cart-catalog", "from": "cart", "to": "catalog", "label": "prices" },
+    { "id": "discount-catalog", "from": "discount", "to": "catalog", "label": "gRPC" },
+    { "id": "order-discount", "from": "order", "to": "discount", "label": "gRPC" },
+    { "id": "order-catalog", "from": "order", "to": "catalog", "label": "gRPC review", "fromSide": "top", "toSide": "top" },
+    { "id": "notification-mailpit", "from": "notification", "to": "mailpit", "label": "SMTP" },
+    { "id": "payment-kafka", "from": "payment", "to": "kafka", "label": "replies", "variant": "dashed" },
+    { "id": "kafka-payment", "from": "kafka", "to": "payment", "label": "commands", "variant": "dashed" },
+    { "id": "auth-kafka", "from": "auth", "to": "kafka", "label": "auth.* events", "variant": "dashed" },
+    { "id": "inventory-kafka", "from": "inventory", "to": "kafka", "label": "replies", "variant": "dashed" },
+    { "id": "kafka-inventory", "from": "kafka", "to": "inventory", "label": "product.* · cmds", "variant": "dashed" },
+    { "id": "kafka-cart", "from": "kafka", "to": "cart", "label": "order.confirmed", "variant": "dashed" },
+    { "id": "catalog-kafka", "from": "catalog", "to": "kafka", "label": "product.*", "variant": "dashed" },
+    { "id": "kafka-catalog", "from": "kafka", "to": "catalog", "label": "shop.registered", "variant": "dashed" },
+    { "id": "discount-kafka", "from": "discount", "to": "kafka", "label": "replies", "variant": "dashed" },
+    { "id": "kafka-discount", "from": "kafka", "to": "discount", "label": "commands", "variant": "dashed" },
+    { "id": "order-kafka", "from": "order", "to": "kafka", "label": "saga commands", "variant": "emphasis" },
+    { "id": "kafka-order", "from": "kafka", "to": "order", "label": "saga.replies", "variant": "dashed" },
+    { "id": "kafka-notification", "from": "kafka", "to": "notification", "label": "6 event topics", "variant": "dashed" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Checkout saga", "items": [
+      "POST /orders → order PENDING + saga + outbox row in one transaction, 202 to the client",
+      "ReserveStock → ApplyDiscounts (if any) → ProcessPayment → CommitStock, each a Kafka command answered on order.saga.replies",
+      "A failed step compensates in reverse order → CANCELLED; success → CONFIRMED and order.order.confirmed clears the cart"
+    ] },
+    { "dot": "violet", "title": "Messaging guarantees", "items": [
+      "Producers (auth, catalog, inventory, discount, order, payment) write a transactional outbox drained by a relay",
+      "Consumers run under an inbox guard and dead-letter to <topic>.dlq; cart and notification only consume",
+      "Synchronous calls are gRPC with deadlines and gobreaker; order calls catalog and discount only to review a checkout"
+    ] },
+    { "dot": "rose", "title": "Edge and shared state", "items": [
+      "The gateway verifies RS256 tokens locally with keys from auth's JWKS and caches RBAC grants",
+      "Redis also holds auth's revoked-session list and catalog's SKU cache (not drawn)",
+      "Catalog only signs S3 upload URLs; clients PUT images straight to the bucket when media is configured"
+    ] },
+    { "dot": "amber", "title": "Data and observability", "items": [
+      "One PostgreSQL 17 instance and one MongoDB 8.2 replica set, a separate database per service",
+      "OTLP traces → Grafana Alloy → Tempo; Prometheus scrapes every /metrics plus DB/Kafka exporters",
+      "Alloy ships container logs to Loki; Grafana dashboards and Alertmanager run under the observability profile"
+    ] }
+  ]
+}
