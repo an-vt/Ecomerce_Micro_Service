@@ -431,3 +431,18 @@ func TestErrorConstructors(t *testing.T) {
 	assert.Equal(t, domain.CodeSkuNotFound, errs.CodeOf(domain.ErrSkuNotFound()))
 	assert.Equal(t, domain.CodeCommentNotFound, errs.CodeOf(domain.ErrCommentNotFound()))
 }
+
+func TestMediaPolicy(t *testing.T) {
+	p := domain.MediaPolicy{MaxBytes: 1000, TTL: time.Minute}
+	ext, err := p.ValidateImage("image/jpeg", 1000)
+	require.NoError(t, err)
+	assert.Equal(t, "jpg", ext)
+	for _, bad := range []struct {
+		ct   string
+		size int64
+	}{{"image/bmp", 10}, {"text/plain", 10}, {"image/jpeg", 0}, {"image/jpeg", 1001}} {
+		_, err := p.ValidateImage(bad.ct, bad.size)
+		assert.Error(t, err, "%+v", bad)
+	}
+	assert.Equal(t, "products/shop-1/abc.png", domain.ObjectKey("shop-1", "abc", "png"))
+}

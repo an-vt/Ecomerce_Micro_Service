@@ -20,7 +20,7 @@ Source: `Ecomerce_project/Ecomerce_BE/src` and `System_message_queue_Ecomerce_BE
 | `services/checkout.service.js` (`checkoutReview`, `orderByUser`), `order.model.js` | order-service |
 | *(none)* | payment-service (new) |
 | `services/notification.service.js` | notification-service |
-| `services/*.upload.service.js`, `configs/{s3,cloudinary,multer}.config.js` | catalog-service media adapter (optional phase P13) |
+| `services/*.upload.service.js`, `configs/{s3,cloudinary,multer}.config.js` | catalog-service `CreateUploadUrl` (presigned PUT to an S3-compatible store, `platform-go/s3x`); the image never passes through the platform |
 | `logger/discord*.js` | removed → slog + Loki |
 | `tests/message_queue/*`, `tests/*.test.js` (manual scripts) | removed → real test suites ([10](10-testing.md)) |
 | `sql/*.sql` (MySQL RBAC experiment) | dropped |
@@ -42,7 +42,7 @@ All paths keep the `/v1/api` prefix. Changes are listed; unchanged routes are in
 | *(not routed)* `orderByUser` | `POST /v1/api/orders`, `GET /orders`, `GET /orders/:id` | new, saga |
 | `GET /v1/api/notification?userId` | `GET /notification` | user from token |
 | `GET /v1/api/discount/list_product_Code` | `GET /discount/list_product_code` | lowercase path |
-| `POST /v1/api/upload/*` | deferred (P13) | was unauthenticated |
+| `POST /v1/api/upload/*` | `POST /product/upload-url` (shops only) | was unauthenticated; the server received the bytes and trusted the file name |
 
 ## 3. Monolith defects and how they are fixed
 

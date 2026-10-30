@@ -11,6 +11,7 @@ type Set struct {
 	ListShopProducts     ListShopProducts
 	GetProductsByIds     GetProductsByIds
 	ListProductIdsByShop ListProductIdsByShop
+	CreateUploadURL      CreateUploadURL
 
 	CreateSpu CreateSpu
 	GetSpu    GetSpu
@@ -28,7 +29,7 @@ func NewSet(d *Deps) *Set {
 	return &Set{
 		CreateProduct: CreateProduct{d}, UpdateProduct: UpdateProduct{d}, SetPublished: SetPublished{d}, GetProduct: GetProduct{d},
 		ListProducts: ListProducts{d}, SearchProducts: SearchProducts{d}, ListShopProducts: ListShopProducts{d},
-		GetProductsByIds: GetProductsByIds{d}, ListProductIdsByShop: ListProductIdsByShop{d},
+		GetProductsByIds: GetProductsByIds{d}, ListProductIdsByShop: ListProductIdsByShop{d}, CreateUploadURL: CreateUploadURL{d},
 		CreateSpu: CreateSpu{d}, GetSpu: GetSpu{d}, GetSku: GetSku{d},
 		CreateComment: CreateComment{d}, DeleteComment: DeleteComment{d}, ListComments: ListComments{d},
 		UpsertShop: UpsertShop{d},

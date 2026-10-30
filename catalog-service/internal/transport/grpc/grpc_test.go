@@ -27,11 +27,14 @@ import (
 	catalogv1 "github.com/an-vt/ecom/proto/gen/go/catalog/v1"
 )
 
-func start(t *testing.T) (catalogv1.CatalogServiceClient, *fake.World) {
+func start(t *testing.T) (catalogv1.CatalogServiceClient, *fake.World) { return startWith(t, nil) }
+
+// startWith is start with an object store (nil: the deployment has none).
+func startWith(t *testing.T, media domain.MediaStorage) (catalogv1.CatalogServiceClient, *fake.World) {
 	t.Helper()
 	w := fake.NewWorld()
 	uc := usecase.NewSet(&usecase.Deps{Products: w.Products(), Spus: w.Spus(), Comments: w.Comments(), Shops: w.Shops(),
-		Types: domain.DefaultTypes(), Tx: w, Outbox: w, SkuCache: fake.NewCache(),
+		Types: domain.DefaultTypes(), Tx: w, Outbox: w, SkuCache: fake.NewCache(), Media: media, MediaPolicy: domain.MediaPolicy{MaxBytes: 5 << 20, TTL: 5 * time.Minute},
 		Clock: clock.NewFixed(time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)), IDs: &idgen.Sequence{Prefix: "id-"}})
 	lis := bufconn.Listen(1 << 20)
 	srv := grpcx.NewServer("catalog-service", metrics.New(), slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -192,4 +195,31 @@ func TestCommentsOverGRPC(t *testing.T) {
 	assert.Empty(t, top.GetComments())
 	_, err = c.CreateComment(bg, &catalogv1.CreateCommentRequest{ProductId: p.GetId(), Content: "x"})
 	assert.Equal(t, errs.KindUnauthenticated, errs.KindOf(err))
+}
+
+func TestUploadURLOverGRPC(t *testing.T) {
+	media := &fake.Media{}
+	c, _ := startWith(t, media)
+	ctx := as("shop1", "SHOP", "shop")
+
+	got, err := c.CreateUploadUrl(ctx, &catalogv1.CreateUploadUrlRequest{ContentType: "image/png", Size: 2048})
+	require.NoError(t, err)
+	assert.Equal(t, "PUT", got.GetMethod())
+	assert.Equal(t, map[string]string{"Content-Type": "image/png"}, got.GetHeaders())
+	assert.Equal(t, "https://cdn.test/"+got.GetKey(), got.GetPublicUrl())
+	assert.Regexp(t, `^products/shop1/id-\d+\.png$`, got.GetKey())
+	assert.Equal(t, "2026-10-30T12:05:00Z", got.GetExpiresAt())
+	require.Len(t, media.Calls, 1)
+	assert.EqualValues(t, 2048, media.Calls[0].Size)
+
+	_, err = c.CreateUploadUrl(ctx, &catalogv1.CreateUploadUrlRequest{ContentType: "application/pdf", Size: 10})
+	assert.Equal(t, domain.CodeUnsupportedMedia, errs.CodeOf(err))
+	_, err = c.CreateUploadUrl(as("u1", "USER", "user"), &catalogv1.CreateUploadUrlRequest{ContentType: "image/png", Size: 10})
+	assert.Equal(t, errs.KindPermissionDenied, errs.KindOf(err))
+}
+
+func TestUploadURLWithoutAStoreSaysSo(t *testing.T) {
+	c, _ := start(t)
+	_, err := c.CreateUploadUrl(as("shop1", "SHOP", "shop"), &catalogv1.CreateUploadUrlRequest{ContentType: "image/png", Size: 10})
+	assert.Equal(t, domain.CodeMediaDisabled, errs.CodeOf(err))
 }

@@ -156,3 +156,46 @@ func TestCommentRoutes(t *testing.T) {
 	assert.Equal(t, 200, g.as(user, "DELETE", "/v1/api/comment?id=c1&productId=p1", "").Code)
 	assert.Equal(t, 401, g.call("DELETE", "/v1/api/comment?id=c1&productId=p1", "").Code)
 }
+
+func TestUploadURLIsForShopsAndKeepsTheDeclaredFile(t *testing.T) {
+	g := newGateway(t)
+	body := `{"contentType":"image/png","size":2048}`
+	assert.Equal(t, 401, g.call("POST", "/v1/api/product/upload-url", body).Code)
+	assert.Equal(t, 403, g.as(g.token("u1", "USER", "user"), "POST", "/v1/api/product/upload-url", body).Code, "buyers do not upload product images")
+
+	var got *catalogv1.CreateUploadUrlRequest
+	g.catalog.upload = func(in *catalogv1.CreateUploadUrlRequest) (*catalogv1.UploadUrl, error) {
+		got = in
+		return &catalogv1.UploadUrl{UploadUrl: "http://store.test/b/k?sig=1", Method: "PUT", Headers: map[string]string{"Content-Type": "image/png"},
+			PublicUrl: "http://store.test/b/k", Key: "products/s1/k.png", ExpiresAt: "2026-10-30T12:05:00Z"}, nil
+	}
+	r := g.as(g.token("s1", "SHOP", "shop"), "POST", "/v1/api/product/upload-url", body)
+	require.Equal(t, 200, r.Code, r.Body.String())
+	meta := r.json()["metadata"].(map[string]any)
+	assert.Equal(t, "http://store.test/b/k?sig=1", meta["uploadUrl"])
+	assert.Equal(t, "PUT", meta["method"])
+	assert.Equal(t, map[string]any{"Content-Type": "image/png"}, meta["headers"])
+	assert.Equal(t, "http://store.test/b/k", meta["publicUrl"])
+	assert.Equal(t, "image/png", got.GetContentType())
+	assert.EqualValues(t, 2048, got.GetSize())
+}
+
+func TestUploadURLValidationAndErrors(t *testing.T) {
+	g := newGateway(t)
+	shop := g.token("s1", "SHOP", "shop")
+	for name, body := range map[string]string{"empty": `{}`, "no size": `{"contentType":"image/png"}`, "no type": `{"size":10}`, "file name": `{"contentType":"image/png","size":10,"fileName":"../../etc/passwd"}`} {
+		assert.Equal(t, 400, g.as(shop, "POST", "/v1/api/product/upload-url", body).Code, name)
+	}
+	g.catalog.upload = func(*catalogv1.CreateUploadUrlRequest) (*catalogv1.UploadUrl, error) {
+		return nil, errs.InvalidArgument("UNSUPPORTED_MEDIA_TYPE", "only images")
+	}
+	r := g.as(shop, "POST", "/v1/api/product/upload-url", `{"contentType":"text/html","size":10}`)
+	assert.Equal(t, 400, r.Code)
+	assert.Equal(t, "UNSUPPORTED_MEDIA_TYPE", r.errCode())
+	g.catalog.upload = func(*catalogv1.CreateUploadUrlRequest) (*catalogv1.UploadUrl, error) {
+		return nil, errs.FailedPrecondition("MEDIA_NOT_CONFIGURED", "image upload is not enabled")
+	}
+	r = g.as(shop, "POST", "/v1/api/product/upload-url", `{"contentType":"image/png","size":10}`)
+	assert.Equal(t, 422, r.Code)
+	assert.Equal(t, "MEDIA_NOT_CONFIGURED", r.errCode())
+}

@@ -221,6 +221,26 @@ func spuOf(r *catalogv1.SpuResponse) gin.H {
 		"product_variations": vars, "isDraft": s.GetIsDraft(), "isPublished": s.GetIsPublished()}, "skus": skus}
 }
 
+// uploadURL hands a shop a presigned URL to upload one product image straight to the object store. The image never passes
+// through the platform; the monolith received the bytes itself, through routes that needed no login.
+func (h *Catalog) uploadURL(c *gin.Context) {
+	var in struct {
+		ContentType string `json:"contentType" binding:"required"`
+		Size        int64  `json:"size" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&in); err != nil {
+		badRequest(c, "contentType and size (the exact size of the file in bytes) are required")
+		return
+	}
+	r, err := h.client.CreateUploadUrl(c.Request.Context(), &catalogv1.CreateUploadUrlRequest{ContentType: in.ContentType, Size: in.Size})
+	if err != nil {
+		fail(c, err)
+		return
+	}
+	ok(c, stdhttp.StatusOK, "Upload URL", gin.H{"uploadUrl": r.GetUploadUrl(), "method": r.GetMethod(), "headers": r.GetHeaders(), "publicUrl": r.GetPublicUrl(),
+		"key": r.GetKey(), "expiresAt": r.GetExpiresAt()})
+}
+
 func (h *Catalog) createSpu(c *gin.Context) {
 	var in struct {
 		Name        string          `json:"product_name" binding:"required"`

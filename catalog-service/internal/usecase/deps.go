@@ -23,8 +23,12 @@ type Deps struct {
 	Tx       TxManager
 	Outbox   Outbox
 	SkuCache SkuCache
-	Clock    clock.Clock
-	IDs      idgen.Generator
+
+	// Media is the object store for product images; nil when the deployment has none.
+	Media       domain.MediaStorage
+	MediaPolicy domain.MediaPolicy
+	Clock       clock.Clock
+	IDs         idgen.Generator
 }
 
 func (d *Deps) emit(ctx context.Context, topic string, ev event.Event) error {

@@ -373,3 +373,15 @@ paths:
       security: [{ apiKey: [], bearerAuth: [] }]
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [name, html], properties: { name: { type: string }, html: { type: string, maxLength: 102400 } } } } } }
       responses: { '201': { $ref: '#/components/responses/Ok' }, '403': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
+  /v1/api/product/upload-url:
+    post:
+      tags: [catalog]
+      summary: A short-lived presigned URL to upload one product image straight to the object store (shops)
+      description: |
+        The image never passes through the platform. Send the bytes with `PUT` to `uploadUrl`, with exactly the returned
+        `headers` (the content type and the exact size are part of the signature, so another type or size is refused by the
+        store). Then use `publicUrl` as the product's thumb. Only image/jpeg, image/png, image/webp and image/gif, up to the
+        configured size. When no object store is configured the answer is 422 MEDIA_NOT_CONFIGURED.
+      security: [{ apiKey: [], bearerAuth: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [contentType, size], properties: { contentType: { type: string, enum: [image/jpeg, image/png, image/webp, image/gif] }, size: { type: integer, minimum: 1, description: 'Exact size of the file in bytes' } } } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '400': { $ref: '#/components/responses/Error' }, '403': { $ref: '#/components/responses/Error' }, '422': { $ref: '#/components/responses/Error' } }

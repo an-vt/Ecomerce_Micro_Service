@@ -188,6 +188,14 @@ func toSku(s *domain.Sku) *catalogv1.Sku {
 	return &catalogv1.Sku{Id: s.ID, SpuId: s.SpuID, TierIdx: tiers, IsDefault: s.IsDefault, Slug: s.Slug, Sort: int32(s.Sort), Price: int64(s.Price), Stock: s.Stock}
 }
 
+func (s *Server) CreateUploadUrl(ctx context.Context, in *catalogv1.CreateUploadUrlRequest) (*catalogv1.UploadUrl, error) {
+	u, err := s.uc.CreateUploadURL.Execute(ctx, in.GetContentType(), in.GetSize())
+	if err != nil {
+		return nil, err
+	}
+	return &catalogv1.UploadUrl{UploadUrl: u.URL, Method: u.Method, Headers: u.Headers, PublicUrl: u.PublicURL, Key: u.Key, ExpiresAt: u.ExpiresAt.UTC().Format(time.RFC3339)}, nil
+}
+
 func (s *Server) CreateSpu(ctx context.Context, in *catalogv1.CreateSpuRequest) (*catalogv1.SpuResponse, error) {
 	attrs, err := attrsFromJSON(in.GetAttributesJson())
 	if err != nil {

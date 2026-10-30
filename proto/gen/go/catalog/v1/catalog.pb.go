@@ -1802,6 +1802,142 @@ func (x *ListProductIdsByShopResponse) GetIds() []string {
 	return nil
 }
 
+type CreateUploadUrlRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContentType   string                 `protobuf:"bytes,1,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"` // image/jpeg | image/png | image/webp | image/gif
+	Size          int64                  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`                                 // bytes: signed into the URL, so the upload must have exactly this size
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateUploadUrlRequest) Reset() {
+	*x = CreateUploadUrlRequest{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateUploadUrlRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateUploadUrlRequest) ProtoMessage() {}
+
+func (x *CreateUploadUrlRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateUploadUrlRequest.ProtoReflect.Descriptor instead.
+func (*CreateUploadUrlRequest) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *CreateUploadUrlRequest) GetContentType() string {
+	if x != nil {
+		return x.ContentType
+	}
+	return ""
+}
+
+func (x *CreateUploadUrlRequest) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+type UploadUrl struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UploadUrl     string                 `protobuf:"bytes,1,opt,name=upload_url,json=uploadUrl,proto3" json:"upload_url,omitempty"`
+	Method        string                 `protobuf:"bytes,2,opt,name=method,proto3" json:"method,omitempty"`                                                                             // PUT
+	Headers       map[string]string      `protobuf:"bytes,3,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // sent with the upload exactly as given (they are part of the signature)
+	PublicUrl     string                 `protobuf:"bytes,4,opt,name=public_url,json=publicUrl,proto3" json:"public_url,omitempty"`                                                      // where the image will be served; use it as the product's thumb
+	Key           string                 `protobuf:"bytes,5,opt,name=key,proto3" json:"key,omitempty"`
+	ExpiresAt     string                 `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"` // RFC 3339
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadUrl) Reset() {
+	*x = UploadUrl{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadUrl) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadUrl) ProtoMessage() {}
+
+func (x *UploadUrl) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadUrl.ProtoReflect.Descriptor instead.
+func (*UploadUrl) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *UploadUrl) GetUploadUrl() string {
+	if x != nil {
+		return x.UploadUrl
+	}
+	return ""
+}
+
+func (x *UploadUrl) GetMethod() string {
+	if x != nil {
+		return x.Method
+	}
+	return ""
+}
+
+func (x *UploadUrl) GetHeaders() map[string]string {
+	if x != nil {
+		return x.Headers
+	}
+	return nil
+}
+
+func (x *UploadUrl) GetPublicUrl() string {
+	if x != nil {
+		return x.PublicUrl
+	}
+	return ""
+}
+
+func (x *UploadUrl) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *UploadUrl) GetExpiresAt() string {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return ""
+}
+
 var File_catalog_v1_catalog_proto protoreflect.FileDescriptor
 
 const file_catalog_v1_catalog_proto_rawDesc = "" +
@@ -1969,15 +2105,31 @@ const file_catalog_v1_catalog_proto_rawDesc = "" +
 	"\x1bListProductIdsByShopRequest\x12\x17\n" +
 	"\ashop_id\x18\x01 \x01(\tR\x06shopId\"0\n" +
 	"\x1cListProductIdsByShopResponse\x12\x10\n" +
-	"\x03ids\x18\x01 \x03(\tR\x03ids2\xf5\n" +
+	"\x03ids\x18\x01 \x03(\tR\x03ids\"O\n" +
+	"\x16CreateUploadUrlRequest\x12!\n" +
+	"\fcontent_type\x18\x01 \x01(\tR\vcontentType\x12\x12\n" +
+	"\x04size\x18\x02 \x01(\x03R\x04size\"\x91\x02\n" +
+	"\tUploadUrl\x12\x1d\n" +
 	"\n" +
+	"upload_url\x18\x01 \x01(\tR\tuploadUrl\x12\x16\n" +
+	"\x06method\x18\x02 \x01(\tR\x06method\x12A\n" +
+	"\aheaders\x18\x03 \x03(\v2'.ecom.catalog.v1.UploadUrl.HeadersEntryR\aheaders\x12\x1d\n" +
+	"\n" +
+	"public_url\x18\x04 \x01(\tR\tpublicUrl\x12\x10\n" +
+	"\x03key\x18\x05 \x01(\tR\x03key\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\x06 \x01(\tR\texpiresAt\x1a:\n" +
+	"\fHeadersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x012\xcd\v\n" +
 	"\x0eCatalogService\x12P\n" +
 	"\rCreateProduct\x12%.ecom.catalog.v1.CreateProductRequest\x1a\x18.ecom.catalog.v1.Product\x12P\n" +
 	"\rUpdateProduct\x12%.ecom.catalog.v1.UpdateProductRequest\x1a\x18.ecom.catalog.v1.Product\x12M\n" +
 	"\x0ePublishProduct\x12!.ecom.catalog.v1.ProductIdRequest\x1a\x18.ecom.catalog.v1.Product\x12O\n" +
 	"\x10UnpublishProduct\x12!.ecom.catalog.v1.ProductIdRequest\x1a\x18.ecom.catalog.v1.Product\x12c\n" +
 	"\x10ListShopProducts\x12(.ecom.catalog.v1.ListShopProductsRequest\x1a%.ecom.catalog.v1.ListProductsResponse\x12L\n" +
-	"\tCreateSpu\x12!.ecom.catalog.v1.CreateSpuRequest\x1a\x1c.ecom.catalog.v1.SpuResponse\x12[\n" +
+	"\tCreateSpu\x12!.ecom.catalog.v1.CreateSpuRequest\x1a\x1c.ecom.catalog.v1.SpuResponse\x12V\n" +
+	"\x0fCreateUploadUrl\x12'.ecom.catalog.v1.CreateUploadUrlRequest\x1a\x1a.ecom.catalog.v1.UploadUrl\x12[\n" +
 	"\fListProducts\x12$.ecom.catalog.v1.ListProductsRequest\x1a%.ecom.catalog.v1.ListProductsResponse\x12_\n" +
 	"\x0eSearchProducts\x12&.ecom.catalog.v1.SearchProductsRequest\x1a%.ecom.catalog.v1.ListProductsResponse\x12I\n" +
 	"\n" +
@@ -2003,7 +2155,7 @@ func file_catalog_v1_catalog_proto_rawDescGZIP() []byte {
 	return file_catalog_v1_catalog_proto_rawDescData
 }
 
-var file_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_catalog_v1_catalog_proto_goTypes = []any{
 	(*Product)(nil),                      // 0: ecom.catalog.v1.Product
 	(*CreateProductRequest)(nil),         // 1: ecom.catalog.v1.CreateProductRequest
@@ -2030,7 +2182,10 @@ var file_catalog_v1_catalog_proto_goTypes = []any{
 	(*GetProductsByIdsResponse)(nil),     // 22: ecom.catalog.v1.GetProductsByIdsResponse
 	(*ListProductIdsByShopRequest)(nil),  // 23: ecom.catalog.v1.ListProductIdsByShopRequest
 	(*ListProductIdsByShopResponse)(nil), // 24: ecom.catalog.v1.ListProductIdsByShopResponse
-	(*emptypb.Empty)(nil),                // 25: google.protobuf.Empty
+	(*CreateUploadUrlRequest)(nil),       // 25: ecom.catalog.v1.CreateUploadUrlRequest
+	(*UploadUrl)(nil),                    // 26: ecom.catalog.v1.UploadUrl
+	nil,                                  // 27: ecom.catalog.v1.UploadUrl.HeadersEntry
+	(*emptypb.Empty)(nil),                // 28: google.protobuf.Empty
 }
 var file_catalog_v1_catalog_proto_depIdxs = []int32{
 	0,  // 0: ecom.catalog.v1.ListProductsResponse.products:type_name -> ecom.catalog.v1.Product
@@ -2041,43 +2196,46 @@ var file_catalog_v1_catalog_proto_depIdxs = []int32{
 	10, // 5: ecom.catalog.v1.SpuResponse.skus:type_name -> ecom.catalog.v1.Sku
 	16, // 6: ecom.catalog.v1.ListCommentsResponse.comments:type_name -> ecom.catalog.v1.Comment
 	0,  // 7: ecom.catalog.v1.GetProductsByIdsResponse.products:type_name -> ecom.catalog.v1.Product
-	1,  // 8: ecom.catalog.v1.CatalogService.CreateProduct:input_type -> ecom.catalog.v1.CreateProductRequest
-	2,  // 9: ecom.catalog.v1.CatalogService.UpdateProduct:input_type -> ecom.catalog.v1.UpdateProductRequest
-	3,  // 10: ecom.catalog.v1.CatalogService.PublishProduct:input_type -> ecom.catalog.v1.ProductIdRequest
-	3,  // 11: ecom.catalog.v1.CatalogService.UnpublishProduct:input_type -> ecom.catalog.v1.ProductIdRequest
-	6,  // 12: ecom.catalog.v1.CatalogService.ListShopProducts:input_type -> ecom.catalog.v1.ListShopProductsRequest
-	12, // 13: ecom.catalog.v1.CatalogService.CreateSpu:input_type -> ecom.catalog.v1.CreateSpuRequest
-	4,  // 14: ecom.catalog.v1.CatalogService.ListProducts:input_type -> ecom.catalog.v1.ListProductsRequest
-	5,  // 15: ecom.catalog.v1.CatalogService.SearchProducts:input_type -> ecom.catalog.v1.SearchProductsRequest
-	3,  // 16: ecom.catalog.v1.CatalogService.GetProduct:input_type -> ecom.catalog.v1.ProductIdRequest
-	13, // 17: ecom.catalog.v1.CatalogService.GetSpu:input_type -> ecom.catalog.v1.GetSpuRequest
-	15, // 18: ecom.catalog.v1.CatalogService.GetSku:input_type -> ecom.catalog.v1.GetSkuRequest
-	17, // 19: ecom.catalog.v1.CatalogService.CreateComment:input_type -> ecom.catalog.v1.CreateCommentRequest
-	18, // 20: ecom.catalog.v1.CatalogService.DeleteComment:input_type -> ecom.catalog.v1.DeleteCommentRequest
-	19, // 21: ecom.catalog.v1.CatalogService.ListComments:input_type -> ecom.catalog.v1.ListCommentsRequest
-	21, // 22: ecom.catalog.v1.CatalogService.GetProductsByIds:input_type -> ecom.catalog.v1.GetProductsByIdsRequest
-	23, // 23: ecom.catalog.v1.CatalogService.ListProductIdsByShop:input_type -> ecom.catalog.v1.ListProductIdsByShopRequest
-	0,  // 24: ecom.catalog.v1.CatalogService.CreateProduct:output_type -> ecom.catalog.v1.Product
-	0,  // 25: ecom.catalog.v1.CatalogService.UpdateProduct:output_type -> ecom.catalog.v1.Product
-	0,  // 26: ecom.catalog.v1.CatalogService.PublishProduct:output_type -> ecom.catalog.v1.Product
-	0,  // 27: ecom.catalog.v1.CatalogService.UnpublishProduct:output_type -> ecom.catalog.v1.Product
-	7,  // 28: ecom.catalog.v1.CatalogService.ListShopProducts:output_type -> ecom.catalog.v1.ListProductsResponse
-	14, // 29: ecom.catalog.v1.CatalogService.CreateSpu:output_type -> ecom.catalog.v1.SpuResponse
-	7,  // 30: ecom.catalog.v1.CatalogService.ListProducts:output_type -> ecom.catalog.v1.ListProductsResponse
-	7,  // 31: ecom.catalog.v1.CatalogService.SearchProducts:output_type -> ecom.catalog.v1.ListProductsResponse
-	0,  // 32: ecom.catalog.v1.CatalogService.GetProduct:output_type -> ecom.catalog.v1.Product
-	14, // 33: ecom.catalog.v1.CatalogService.GetSpu:output_type -> ecom.catalog.v1.SpuResponse
-	10, // 34: ecom.catalog.v1.CatalogService.GetSku:output_type -> ecom.catalog.v1.Sku
-	16, // 35: ecom.catalog.v1.CatalogService.CreateComment:output_type -> ecom.catalog.v1.Comment
-	25, // 36: ecom.catalog.v1.CatalogService.DeleteComment:output_type -> google.protobuf.Empty
-	20, // 37: ecom.catalog.v1.CatalogService.ListComments:output_type -> ecom.catalog.v1.ListCommentsResponse
-	22, // 38: ecom.catalog.v1.CatalogService.GetProductsByIds:output_type -> ecom.catalog.v1.GetProductsByIdsResponse
-	24, // 39: ecom.catalog.v1.CatalogService.ListProductIdsByShop:output_type -> ecom.catalog.v1.ListProductIdsByShopResponse
-	24, // [24:40] is the sub-list for method output_type
-	8,  // [8:24] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	27, // 8: ecom.catalog.v1.UploadUrl.headers:type_name -> ecom.catalog.v1.UploadUrl.HeadersEntry
+	1,  // 9: ecom.catalog.v1.CatalogService.CreateProduct:input_type -> ecom.catalog.v1.CreateProductRequest
+	2,  // 10: ecom.catalog.v1.CatalogService.UpdateProduct:input_type -> ecom.catalog.v1.UpdateProductRequest
+	3,  // 11: ecom.catalog.v1.CatalogService.PublishProduct:input_type -> ecom.catalog.v1.ProductIdRequest
+	3,  // 12: ecom.catalog.v1.CatalogService.UnpublishProduct:input_type -> ecom.catalog.v1.ProductIdRequest
+	6,  // 13: ecom.catalog.v1.CatalogService.ListShopProducts:input_type -> ecom.catalog.v1.ListShopProductsRequest
+	12, // 14: ecom.catalog.v1.CatalogService.CreateSpu:input_type -> ecom.catalog.v1.CreateSpuRequest
+	25, // 15: ecom.catalog.v1.CatalogService.CreateUploadUrl:input_type -> ecom.catalog.v1.CreateUploadUrlRequest
+	4,  // 16: ecom.catalog.v1.CatalogService.ListProducts:input_type -> ecom.catalog.v1.ListProductsRequest
+	5,  // 17: ecom.catalog.v1.CatalogService.SearchProducts:input_type -> ecom.catalog.v1.SearchProductsRequest
+	3,  // 18: ecom.catalog.v1.CatalogService.GetProduct:input_type -> ecom.catalog.v1.ProductIdRequest
+	13, // 19: ecom.catalog.v1.CatalogService.GetSpu:input_type -> ecom.catalog.v1.GetSpuRequest
+	15, // 20: ecom.catalog.v1.CatalogService.GetSku:input_type -> ecom.catalog.v1.GetSkuRequest
+	17, // 21: ecom.catalog.v1.CatalogService.CreateComment:input_type -> ecom.catalog.v1.CreateCommentRequest
+	18, // 22: ecom.catalog.v1.CatalogService.DeleteComment:input_type -> ecom.catalog.v1.DeleteCommentRequest
+	19, // 23: ecom.catalog.v1.CatalogService.ListComments:input_type -> ecom.catalog.v1.ListCommentsRequest
+	21, // 24: ecom.catalog.v1.CatalogService.GetProductsByIds:input_type -> ecom.catalog.v1.GetProductsByIdsRequest
+	23, // 25: ecom.catalog.v1.CatalogService.ListProductIdsByShop:input_type -> ecom.catalog.v1.ListProductIdsByShopRequest
+	0,  // 26: ecom.catalog.v1.CatalogService.CreateProduct:output_type -> ecom.catalog.v1.Product
+	0,  // 27: ecom.catalog.v1.CatalogService.UpdateProduct:output_type -> ecom.catalog.v1.Product
+	0,  // 28: ecom.catalog.v1.CatalogService.PublishProduct:output_type -> ecom.catalog.v1.Product
+	0,  // 29: ecom.catalog.v1.CatalogService.UnpublishProduct:output_type -> ecom.catalog.v1.Product
+	7,  // 30: ecom.catalog.v1.CatalogService.ListShopProducts:output_type -> ecom.catalog.v1.ListProductsResponse
+	14, // 31: ecom.catalog.v1.CatalogService.CreateSpu:output_type -> ecom.catalog.v1.SpuResponse
+	26, // 32: ecom.catalog.v1.CatalogService.CreateUploadUrl:output_type -> ecom.catalog.v1.UploadUrl
+	7,  // 33: ecom.catalog.v1.CatalogService.ListProducts:output_type -> ecom.catalog.v1.ListProductsResponse
+	7,  // 34: ecom.catalog.v1.CatalogService.SearchProducts:output_type -> ecom.catalog.v1.ListProductsResponse
+	0,  // 35: ecom.catalog.v1.CatalogService.GetProduct:output_type -> ecom.catalog.v1.Product
+	14, // 36: ecom.catalog.v1.CatalogService.GetSpu:output_type -> ecom.catalog.v1.SpuResponse
+	10, // 37: ecom.catalog.v1.CatalogService.GetSku:output_type -> ecom.catalog.v1.Sku
+	16, // 38: ecom.catalog.v1.CatalogService.CreateComment:output_type -> ecom.catalog.v1.Comment
+	28, // 39: ecom.catalog.v1.CatalogService.DeleteComment:output_type -> google.protobuf.Empty
+	20, // 40: ecom.catalog.v1.CatalogService.ListComments:output_type -> ecom.catalog.v1.ListCommentsResponse
+	22, // 41: ecom.catalog.v1.CatalogService.GetProductsByIds:output_type -> ecom.catalog.v1.GetProductsByIdsResponse
+	24, // 42: ecom.catalog.v1.CatalogService.ListProductIdsByShop:output_type -> ecom.catalog.v1.ListProductIdsByShopResponse
+	26, // [26:43] is the sub-list for method output_type
+	9,  // [9:26] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_catalog_v1_catalog_proto_init() }
@@ -2092,7 +2250,7 @@ func file_catalog_v1_catalog_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_catalog_v1_catalog_proto_rawDesc), len(file_catalog_v1_catalog_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   25,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

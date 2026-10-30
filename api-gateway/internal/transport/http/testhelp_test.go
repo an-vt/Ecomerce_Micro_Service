@@ -174,6 +174,17 @@ type catalogStub struct {
 	get    func(*catalogv1.ProductIdRequest) (*catalogv1.Product, error)
 	create func(*catalogv1.CreateProductRequest) (*catalogv1.Product, error)
 	update func(*catalogv1.UpdateProductRequest) (*catalogv1.Product, error)
+	upload func(*catalogv1.CreateUploadUrlRequest) (*catalogv1.UploadUrl, error)
+}
+
+func (s *catalogStub) CreateUploadUrl(ctx context.Context, in *catalogv1.CreateUploadUrlRequest) (*catalogv1.UploadUrl, error) {
+	s.enter(ctx)
+	if s.upload != nil {
+		r, err := s.upload(in)
+		return r, grpcx.ToStatus(err)
+	}
+	return &catalogv1.UploadUrl{UploadUrl: "http://store.test/b/products/s1/x.png?X-Amz-Signature=abc", Method: "PUT", Headers: map[string]string{"Content-Type": in.GetContentType()},
+		PublicUrl: "http://store.test/b/products/s1/x.png", Key: "products/s1/x.png", ExpiresAt: "2026-10-30T12:05:00Z"}, nil
 }
 
 func (s *catalogStub) enter(ctx context.Context) {

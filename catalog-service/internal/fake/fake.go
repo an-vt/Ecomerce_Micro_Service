@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/an-vt/ecom/catalog-service/internal/domain"
 	"github.com/an-vt/ecom/platform-go/outbox"
@@ -477,4 +478,27 @@ func (c *Cache) Lookup(ctx context.Context, skuID string, load func(ctx context.
 	}
 	c.mu.Unlock()
 	return s, found, nil
+}
+
+// Media is a recording object store.
+type Media struct {
+	Calls []MediaCall
+	Err   error
+}
+
+// MediaCall is one PresignPut request.
+type MediaCall struct {
+	Key, ContentType string
+	Size             int64
+	TTL              time.Duration
+}
+
+// PresignPut implements domain.MediaStorage.
+func (m *Media) PresignPut(key, contentType string, size int64, ttl time.Duration) (domain.Upload, error) {
+	m.Calls = append(m.Calls, MediaCall{key, contentType, size, ttl})
+	if m.Err != nil {
+		return domain.Upload{}, m.Err
+	}
+	return domain.Upload{URL: "https://store.test/" + key + "?sig=1", Method: "PUT", Headers: map[string]string{"Content-Type": contentType},
+		PublicURL: "https://cdn.test/" + key, Key: key, ExpiresAt: time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC).Add(ttl)}, nil
 }

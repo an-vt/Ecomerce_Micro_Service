@@ -280,7 +280,7 @@ Conventions: `<svc>` = service folder; module path prefix `github.com/an-vt/ecom
 
 ## P13 — Media (optional)
 
-- [ ] **P13.1** `MediaStorage` port in catalog; S3 adapter (S3-compatible store for local, chosen in this phase); `POST /product/upload-url` returns a presigned PUT URL (auth required); unit + integration tests.
+- [x] **P13.1** `MediaStorage` port in catalog; S3 adapter (S3-compatible store for local, chosen in this phase); `POST /product/upload-url` returns a presigned PUT URL (auth required); unit + integration tests.
 
 ---
 

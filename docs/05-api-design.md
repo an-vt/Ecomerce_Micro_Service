@@ -87,6 +87,7 @@ Login / signup / refresh return `{ account, tokens: { accessToken, refreshToken,
 | POST | `/product/publish/:id` · `/product/unpublish/:id` | 🏪 | `PublishProduct` · `UnpublishProduct` |
 | GET | `/product/drafts/all` · `/product/published/all` | 🏪 | `ListShopProducts{published}` |
 | POST | `/product/spu/new` | 🏪 | `CreateSpu` |
+| POST | `/product/upload-url` `{contentType, size}` | 🏪 | `CreateUploadUrl` → `{uploadUrl, method, headers, publicUrl, key, expiresAt}`; the client `PUT`s the bytes to `uploadUrl` with exactly `headers`. Type and exact size are signed; `image/jpeg|png|webp|gif` only; 422 `MEDIA_NOT_CONFIGURED` when no store is set |
 | GET | `/product/spu/get_spu_info?product_id` | 🔑 | `GetSpu` |
 | GET | `/product/sku/select_variation?sku_id&product_id` | 🔑 | `GetSku` (cached) |
 | GET | `/comment/list?productId&parentId&limit&skip` | 🔑 | `ListComments` |

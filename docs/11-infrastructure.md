@@ -13,6 +13,7 @@ Same layout as `payment_gateway_golang`: shared stores in `shared-infra/infra/lo
 | `ecom-kafka-init` | `apache/kafka:3.9.1` | – | one-shot: `kafka/create-topics.sh` (topics + `.dlq`) |
 | `ecom-kafka-ui` | `provectuslabs/kafka-ui:v0.7.2` | 8080 | browse topics / consumer lag |
 | `ecom-mailpit` | `axllent/mailpit:v1.27.0` | 8025 (UI/API), 1025 (SMTP) | catches verification emails |
+| `ecom-s3` | `zenko/cloudserver:latest` (amd64, emulated on Apple silicon) | 8000 | S3-compatible store for product images (in-memory, local only). MinIO images could not be pulled here; the catalog speaks plain S3 so any store works |
 
 Profile **`observability`** (on by default in `make up`, `OBSERVABILITY=0` to skip):
 
@@ -69,7 +70,7 @@ Healthcheck in compose: `["CMD", "/app", "-healthcheck"]`.
 |---|---|
 | api-gateway | `AUTH_GRPC_ADDR=ecom-auth:9101`, `CATALOG_GRPC_ADDR`, `INVENTORY_GRPC_ADDR`, `CART_GRPC_ADDR`, `DISCOUNT_GRPC_ADDR`, `ORDER_GRPC_ADDR`, `NOTIFICATION_GRPC_ADDR`, `CORS_ORIGINS`, `RATE_LIMIT_PER_MIN`, `COOKIE_SECURE` |
 | auth-service | `DATABASE_URL=postgres://auth:auth@ecom-postgres:5432/auth_db`, `AUTH_JWT_PRIVATE_KEY_FILE`, `AUTH_JWT_PUBLIC_KEY_FILE`, `ACCESS_TOKEN_TTL_SEC=900`, `REFRESH_TOKEN_TTL_SEC=604800`, `OTP_TTL_SEC=300`, `VERIFY_LINK_BASE=http://localhost:8088/v1/api/user/welcome_back`, `SEED_API_KEY`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` |
-| catalog-service | `MONGO_URI=mongodb://catalog:catalog@ecom-mongo:27017/catalog_db?replicaSet=rs0&authSource=catalog_db`, `SKU_CACHE_TTL_SEC=30` |
+| catalog-service | `MONGO_URI=mongodb://catalog:catalog@ecom-mongo:27017/catalog_db?replicaSet=rs0&authSource=catalog_db`, `SKU_CACHE_TTL_SEC=30`; optional images: `MEDIA_ENDPOINT` (the address *clients* use), `MEDIA_BUCKET`, `MEDIA_ACCESS_KEY`, `MEDIA_SECRET_KEY` (all four or none), `MEDIA_PUBLIC_BASE_URL`, `MEDIA_PATH_STYLE`, `MEDIA_URL_TTL_SEC=300`, `MEDIA_MAX_BYTES=5242880` |
 | inventory-service | `DATABASE_URL=…/inventory_db`, `CATALOG_GRPC_ADDR`, `RESERVATION_TTL_MS=900000` |
 | cart-service | `MONGO_URI=…/cart_db…`, `CATALOG_GRPC_ADDR`, `INVENTORY_GRPC_ADDR` |
 | discount-service | `DATABASE_URL=…/discount_db`, `CATALOG_GRPC_ADDR` |

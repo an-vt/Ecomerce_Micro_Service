@@ -408,3 +408,85 @@ func TestUpsertShop(t *testing.T) {
 	assert.Equal(t, "New", got["s1"].Name)
 	assert.Error(t, f.set.UpsertShop.Execute(anon, domain.ShopProjection{Name: "no id"}))
 }
+
+// ---- image uploads ------------------------------------------------------------------------------------------------
+
+func withMedia(f *fx, m *fake.Media) {
+	f.set = usecase.NewSet(&usecase.Deps{
+		Products: f.w.Products(), Spus: f.w.Spus(), Comments: f.w.Comments(), Shops: f.w.Shops(),
+		Types: domain.DefaultTypes(), Tx: f.w, Outbox: f.w, SkuCache: f.cache, Clock: f.clk, IDs: &idgen.Sequence{Prefix: "id-"},
+		Media: m, MediaPolicy: domain.MediaPolicy{MaxBytes: 1 << 20, TTL: 10 * time.Minute},
+	})
+}
+
+func TestAShopGetsAnUploadURLScopedToItself(t *testing.T) {
+	f, m := newFx(), &fake.Media{}
+	withMedia(f, m)
+	up, err := f.set.CreateUploadURL.Execute(asShop("shop-7"), "image/webp", 4096)
+	require.NoError(t, err)
+	assert.Equal(t, "products/shop-7/id-1.webp", up.Key, "scoped by shop, named by a generated id, extension from the declared type")
+	require.Len(t, m.Calls, 1)
+	assert.Equal(t, fake.MediaCall{Key: "products/shop-7/id-1.webp", ContentType: "image/webp", Size: 4096, TTL: 10 * time.Minute}, m.Calls[0])
+
+	again, err := f.set.CreateUploadURL.Execute(asShop("shop-7"), "image/webp", 4096)
+	require.NoError(t, err)
+	assert.NotEqual(t, up.Key, again.Key, "every upload gets its own key: nobody overwrites an existing image")
+}
+
+func TestOnlyAllowedImageTypesAndSizesAreSigned(t *testing.T) {
+	f, m := newFx(), &fake.Media{}
+	withMedia(f, m)
+	for ct, ext := range map[string]string{"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"} {
+		up, err := f.set.CreateUploadURL.Execute(asShop("s"), ct, 100)
+		require.NoError(t, err, ct)
+		assert.Regexp(t, `\.`+ext+`$`, up.Key)
+	}
+	for name, tc := range map[string]struct {
+		ct   string
+		size int64
+		code string
+	}{
+		"html":        {"text/html", 100, domain.CodeUnsupportedMedia},
+		"svg":         {"image/svg+xml", 100, domain.CodeUnsupportedMedia},
+		"executable":  {"application/octet-stream", 100, domain.CodeUnsupportedMedia},
+		"empty type":  {"", 100, domain.CodeUnsupportedMedia},
+		"type tricks": {"image/png; charset=x", 100, domain.CodeUnsupportedMedia},
+		"too large":   {"image/png", 1<<20 + 1, domain.CodeFileTooLarge},
+		"zero":        {"image/png", 0, errs.CodeValidationFailed},
+		"negative":    {"image/png", -5, errs.CodeValidationFailed},
+	} {
+		before := len(m.Calls)
+		_, err := f.set.CreateUploadURL.Execute(asShop("s"), tc.ct, tc.size)
+		require.Error(t, err, name)
+		assert.Equal(t, tc.code, errs.CodeOf(err), name)
+		assert.Equal(t, errs.KindInvalidArgument, errs.KindOf(err), name)
+		assert.Len(t, m.Calls, before, "%s: nothing is signed for a refused upload", name)
+	}
+	_, err := f.set.CreateUploadURL.Execute(asShop("s"), "image/png", 1<<20)
+	assert.NoError(t, err, "exactly the limit is fine")
+}
+
+func TestUploadURLsAreForShopsOnly(t *testing.T) {
+	f, m := newFx(), &fake.Media{}
+	withMedia(f, m)
+	_, err := f.set.CreateUploadURL.Execute(anon, "image/png", 100)
+	assert.Equal(t, errs.KindUnauthenticated, errs.KindOf(err))
+	_, err = f.set.CreateUploadURL.Execute(asUser("u1", "user"), "image/png", 100)
+	assert.Equal(t, errs.KindPermissionDenied, errs.KindOf(err), "the monolith's upload routes needed no login at all")
+	assert.Empty(t, m.Calls)
+}
+
+func TestUploadsAreOffWithoutAnObjectStore(t *testing.T) {
+	f := newFx() // no Media
+	_, err := f.set.CreateUploadURL.Execute(asShop("s"), "image/png", 100)
+	assert.Equal(t, domain.CodeMediaDisabled, errs.CodeOf(err))
+	assert.Equal(t, errs.KindFailedPrecondition, errs.KindOf(err))
+}
+
+func TestStoreFailuresPassThrough(t *testing.T) {
+	f, m := newFx(), &fake.Media{Err: errors.New("signer exploded")}
+	withMedia(f, m)
+	_, err := f.set.CreateUploadURL.Execute(asShop("s"), "image/png", 100)
+	require.Error(t, err)
+	assert.Equal(t, "signer exploded", err.Error())
+}

@@ -133,6 +133,7 @@ func NewRouter(o Options) *gin.Engine {
 	pr.GET("/:productId", cat.get)
 	pr.POST("", authed, shopOnlyGuard(), cat.create)
 	pr.POST("/spu/new", authed, shopOnlyGuard(), cat.createSpu)
+	pr.POST("/upload-url", authed, shopOnlyGuard(), cat.uploadURL)
 	pr.POST("/publish/:id", authed, shopOnlyGuard(), cat.setPublished(true))
 	pr.POST("/unpublish/:id", authed, shopOnlyGuard(), cat.setPublished(false))
 	pr.PATCH("/:productId", authed, shopOnlyGuard(), cat.update)

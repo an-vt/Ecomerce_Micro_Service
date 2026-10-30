@@ -26,6 +26,7 @@ const (
 	CatalogService_UnpublishProduct_FullMethodName     = "/ecom.catalog.v1.CatalogService/UnpublishProduct"
 	CatalogService_ListShopProducts_FullMethodName     = "/ecom.catalog.v1.CatalogService/ListShopProducts"
 	CatalogService_CreateSpu_FullMethodName            = "/ecom.catalog.v1.CatalogService/CreateSpu"
+	CatalogService_CreateUploadUrl_FullMethodName      = "/ecom.catalog.v1.CatalogService/CreateUploadUrl"
 	CatalogService_ListProducts_FullMethodName         = "/ecom.catalog.v1.CatalogService/ListProducts"
 	CatalogService_SearchProducts_FullMethodName       = "/ecom.catalog.v1.CatalogService/SearchProducts"
 	CatalogService_GetProduct_FullMethodName           = "/ecom.catalog.v1.CatalogService/GetProduct"
@@ -51,6 +52,8 @@ type CatalogServiceClient interface {
 	UnpublishProduct(ctx context.Context, in *ProductIdRequest, opts ...grpc.CallOption) (*Product, error)
 	ListShopProducts(ctx context.Context, in *ListShopProductsRequest, opts ...grpc.CallOption) (*ListProductsResponse, error)
 	CreateSpu(ctx context.Context, in *CreateSpuRequest, opts ...grpc.CallOption) (*SpuResponse, error)
+	// A short-lived URL the shop uses to upload one product image straight to the object store.
+	CreateUploadUrl(ctx context.Context, in *CreateUploadUrlRequest, opts ...grpc.CallOption) (*UploadUrl, error)
 	// Public.
 	ListProducts(ctx context.Context, in *ListProductsRequest, opts ...grpc.CallOption) (*ListProductsResponse, error)
 	SearchProducts(ctx context.Context, in *SearchProductsRequest, opts ...grpc.CallOption) (*ListProductsResponse, error)
@@ -128,6 +131,16 @@ func (c *catalogServiceClient) CreateSpu(ctx context.Context, in *CreateSpuReque
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SpuResponse)
 	err := c.cc.Invoke(ctx, CatalogService_CreateSpu_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *catalogServiceClient) CreateUploadUrl(ctx context.Context, in *CreateUploadUrlRequest, opts ...grpc.CallOption) (*UploadUrl, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UploadUrl)
+	err := c.cc.Invoke(ctx, CatalogService_CreateUploadUrl_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -247,6 +260,8 @@ type CatalogServiceServer interface {
 	UnpublishProduct(context.Context, *ProductIdRequest) (*Product, error)
 	ListShopProducts(context.Context, *ListShopProductsRequest) (*ListProductsResponse, error)
 	CreateSpu(context.Context, *CreateSpuRequest) (*SpuResponse, error)
+	// A short-lived URL the shop uses to upload one product image straight to the object store.
+	CreateUploadUrl(context.Context, *CreateUploadUrlRequest) (*UploadUrl, error)
 	// Public.
 	ListProducts(context.Context, *ListProductsRequest) (*ListProductsResponse, error)
 	SearchProducts(context.Context, *SearchProductsRequest) (*ListProductsResponse, error)
@@ -287,6 +302,9 @@ func (UnimplementedCatalogServiceServer) ListShopProducts(context.Context, *List
 }
 func (UnimplementedCatalogServiceServer) CreateSpu(context.Context, *CreateSpuRequest) (*SpuResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateSpu not implemented")
+}
+func (UnimplementedCatalogServiceServer) CreateUploadUrl(context.Context, *CreateUploadUrlRequest) (*UploadUrl, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateUploadUrl not implemented")
 }
 func (UnimplementedCatalogServiceServer) ListProducts(context.Context, *ListProductsRequest) (*ListProductsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListProducts not implemented")
@@ -443,6 +461,24 @@ func _CatalogService_CreateSpu_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CatalogServiceServer).CreateSpu(ctx, req.(*CreateSpuRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CatalogService_CreateUploadUrl_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateUploadUrlRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CatalogServiceServer).CreateUploadUrl(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CatalogService_CreateUploadUrl_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CatalogServiceServer).CreateUploadUrl(ctx, req.(*CreateUploadUrlRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -657,6 +693,10 @@ var CatalogService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateSpu",
 			Handler:    _CatalogService_CreateSpu_Handler,
+		},
+		{
+			MethodName: "CreateUploadUrl",
+			Handler:    _CatalogService_CreateUploadUrl_Handler,
 		},
 		{
 			MethodName: "ListProducts",

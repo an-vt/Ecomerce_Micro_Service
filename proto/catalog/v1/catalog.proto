@@ -13,6 +13,8 @@ service CatalogService {
   rpc UnpublishProduct(ProductIdRequest) returns (Product);
   rpc ListShopProducts(ListShopProductsRequest) returns (ListProductsResponse);
   rpc CreateSpu(CreateSpuRequest) returns (SpuResponse);
+  // A short-lived URL the shop uses to upload one product image straight to the object store.
+  rpc CreateUploadUrl(CreateUploadUrlRequest) returns (UploadUrl);
 
   // Public.
   rpc ListProducts(ListProductsRequest) returns (ListProductsResponse);
@@ -214,4 +216,18 @@ message ListProductIdsByShopRequest {
 
 message ListProductIdsByShopResponse {
   repeated string ids = 1;
+}
+
+message CreateUploadUrlRequest {
+  string content_type = 1; // image/jpeg | image/png | image/webp | image/gif
+  int64 size = 2;          // bytes: signed into the URL, so the upload must have exactly this size
+}
+
+message UploadUrl {
+  string upload_url = 1;
+  string method = 2; // PUT
+  map<string, string> headers = 3; // sent with the upload exactly as given (they are part of the signature)
+  string public_url = 4; // where the image will be served; use it as the product's thumb
+  string key = 5;
+  string expires_at = 6; // RFC 3339
 }

@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/an-vt/ecom/catalog-service/internal/cache"
+	"github.com/an-vt/ecom/catalog-service/internal/client/media"
 	"github.com/an-vt/ecom/catalog-service/internal/config"
 	_ "github.com/an-vt/ecom/catalog-service/internal/database/migrations" // registers the migrations
 	"github.com/an-vt/ecom/catalog-service/internal/domain"
@@ -81,12 +82,23 @@ func Run(ctx context.Context, cfg config.Config) error {
 
 	repos := mongorepo.New(store)
 	tx := mongox.NewTxManager(store)
-	uc := usecase.NewSet(&usecase.Deps{
+	deps := &usecase.Deps{
 		Products: repos.Products, Spus: repos.Spus, Comments: repos.Comments, Shops: repos.Shops,
 		Types: domain.DefaultTypes(), Tx: tx, Outbox: mongooutbox.NewWriter(store.DB()),
 		SkuCache: cache.NewSku(redisx.NewCache(rdb, "sku:"), cfg.SkuCacheTTL),
 		Clock:    clock.System{}, IDs: idgen.ULID{},
-	})
+		MediaPolicy: domain.MediaPolicy{MaxBytes: cfg.MediaMaxBytes, TTL: cfg.MediaURLTTL},
+	}
+	if cfg.MediaEnabled() {
+		store, err := media.New(media.Config{Endpoint: cfg.MediaEndpoint, Bucket: cfg.MediaBucket, Region: cfg.MediaRegion, AccessKey: cfg.MediaAccessKey,
+			SecretKey: cfg.MediaSecretKey, PathStyle: cfg.MediaPathStyle, PublicBaseURL: cfg.MediaPublicURL}, clock.System{})
+		if err != nil {
+			return fmt.Errorf("media: %w", err)
+		}
+		deps.Media = store
+		log.Info("product image uploads enabled", "bucket", cfg.MediaBucket, "endpoint", cfg.MediaEndpoint)
+	}
+	uc := usecase.NewSet(deps)
 
 	runner, err := kafkax.NewRunner(kafkax.RunnerConfig{
 		Brokers: cfg.KafkaBrokers, Group: consumer.Consumer, Topics: consumer.Topics, Log: log,
